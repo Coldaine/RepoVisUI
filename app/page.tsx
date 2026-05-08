@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence, LayoutGroup, useMotionValue, useSpring, useTransform } from 'motion/react';
+import { motion, AnimatePresence, LayoutGroup, useMotionValue, useSpring, useTransform, MotionConfig } from 'motion/react';
 import { MOCK_EXHIBITS, ExhibitArtifact, EXHIBIT_ICONS } from '@/lib/exhibits';
 import { cn } from '@/lib/utils';
 import { sounds } from '@/lib/audio';
@@ -20,6 +20,8 @@ import {
   AlertTriangle,
   Target,
   Radar,
+  Network,
+  LayoutGrid,
   Sparkles,
   Volume2,
   VolumeX,
@@ -37,6 +39,9 @@ const EASE_PREMIUM = [0.16, 1, 0.3, 1] as const;
 const EASE_IN_OUT_PREMIUM = [0.65, 0, 0.35, 1] as const;
 const SPRING_TACTILE = { type: "spring", stiffness: 400, damping: 25 } as const;
 const SPRING_EXPAND = { type: "spring" as const, stiffness: 300, damping: 30, mass: 1 };
+const SPRING_QUICK = { type: "spring", stiffness: 500, damping: 40 } as const;
+const SPRING_SMOOTH = { type: "spring", stiffness: 200, damping: 25 } as const;
+const SPRING_MODAL_ITEM = { type: "spring", stiffness: 350, damping: 30 } as const;
 
 // --- Sub-components for specific exhibit types ---
 
@@ -275,23 +280,33 @@ const FocusDeep = ({ data }: { data: any }) => {
       <AnimatePresence>
         {hoveredNode ? (
           <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            className="absolute bottom-8 left-8 right-8 bg-surface/95 backdrop-blur-md p-6 rounded-xl border border-primary/30 pointer-events-none shadow-2xl"
+            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+            animate={{ opacity: 0.9, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+            whileHover={{ scale: 1.02, opacity: 1 }}
+            transition={SPRING_MODAL_ITEM}
+            className="absolute top-8 right-8 max-w-xs bg-background-dark/95 backdrop-blur-2xl p-5 rounded-2xl border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-20 pointer-events-auto overflow-hidden group/detail"
           >
-            <h4 className="text-sm font-bold text-primary mb-2 font-mono truncate">{hoveredNode.name}</h4>
-            <div className="flex justify-between text-[10px] uppercase tracking-widest text-muted mb-4">
-              <span>Gravitational Coupling</span>
-              <span className="text-primary font-bold text-lg">{(hoveredNode.coEditScore * 100).toFixed(0)}%</span>
+            <div className="absolute top-0 left-0 w-1 h-full opacity-50 bg-primary" />
+            <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-primary mb-3 flex items-center gap-2">
+              <Target className="w-3.5 h-3.5" /> Gravitational Node
+            </h4>
+            <h5 className="text-xs font-bold text-white mb-2 font-mono truncate">{hoveredNode.name}</h5>
+            
+            <div className="flex justify-between items-end mb-4">
+              <span className="text-[9px] font-black uppercase tracking-widest text-muted">Coupling Score</span>
+              <span className="text-primary font-mono text-xl font-bold">{(hoveredNode.coEditScore * 100).toFixed(0)}%</span>
             </div>
-            <ul className="space-y-2">
-              {hoveredNode.logEntries.map((log: string, i: number) => (
-                <li key={i} className="text-xs font-mono text-text-main/90 leading-tight">
-                  <span className="text-primary/50 mr-2">→</span>{log}
-                </li>
+
+            <div className="space-y-1.5 border-t border-white/5 pt-3">
+              <div className="text-[9px] font-black uppercase tracking-widest text-muted mb-1">Recent Traces</div>
+              {hoveredNode.logEntries.slice(0, 3).map((log: string, i: number) => (
+                <div key={i} className="text-[10px] font-mono text-white/70 leading-tight flex gap-2">
+                  <span className="text-primary/40">[{i+1}]</span>
+                  <span className="truncate">{log}</span>
+                </div>
               ))}
-            </ul>
+            </div>
           </motion.div>
         ) : (
           <motion.div
@@ -686,17 +701,27 @@ const RelationshipsDeep = ({ data }: { data: any }) => {
       <AnimatePresence>
         {hoveredNode && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            className="absolute bottom-8 right-8 bg-surface/95 backdrop-blur-md p-6 rounded-xl border border-primary/30 pointer-events-none shadow-2xl w-64"
+            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            animate={{ opacity: 0.9, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+            whileHover={{ scale: 1.02, opacity: 1 }}
+            transition={SPRING_MODAL_ITEM}
+            className="absolute top-8 right-8 max-w-xs bg-background-dark/95 backdrop-blur-2xl p-5 rounded-2xl border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-20 pointer-events-auto overflow-hidden group/detail"
           >
-            <h4 className="text-sm font-bold text-white mb-1 font-mono">{hoveredNode.id}</h4>
-            <div className="text-[10px] uppercase tracking-widest text-muted mb-4">{hoveredNode.type}</div>
-            <div className="flex justify-between items-center text-xs">
-              <span className="text-muted">Significance</span>
-              <span className="text-primary font-bold">{(hoveredNode.significance || 5) * 10}</span>
+            <div className="absolute top-0 left-0 w-1 h-full opacity-50 bg-accent" />
+            <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-accent mb-3 flex items-center gap-2">
+              <Network className="w-3.5 h-3.5" /> Relation Logic
+            </h4>
+            <h5 className="text-xs font-bold text-white mb-1 font-mono truncate">{hoveredNode.id}</h5>
+            <div className="text-[9px] uppercase tracking-[0.3em] text-muted mb-4 font-black">{hoveredNode.type}</div>
+            
+            <div className="flex justify-between items-center bg-white/5 p-3 rounded-lg border border-white/5">
+              <span className="text-[9px] font-black uppercase tracking-widest text-muted">Significance</span>
+              <span className="text-accent font-mono font-bold">{(hoveredNode.significance || 5) * 10}</span>
             </div>
+            <p className="mt-4 text-[10px] text-white/50 font-mono leading-relaxed italic">
+              Connections: {data.links.filter((l:any) => l.source.id === hoveredNode.id || l.target.id === hoveredNode.id).length} Active
+            </p>
           </motion.div>
         )}
       </AnimatePresence>
@@ -738,7 +763,7 @@ const TimelineDeep = ({ data }: { data: any }) => {
             key={e.id}
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: i * 0.1 }}
+            transition={{ ...SPRING_SMOOTH, delay: i * 0.1 }}
             className="relative cursor-pointer group"
             onClick={() => { sounds.blip(); setSelectedEvent(e); }}
           >
@@ -877,27 +902,36 @@ const ChurnDeep = ({ data }: { data: any }) => {
       <AnimatePresence>
         {hoveredCell && (
           <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            className="absolute bottom-8 right-8 bg-surface/95 backdrop-blur-md p-6 rounded-xl border border-primary/30 pointer-events-none shadow-2xl w-64"
+            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            animate={{ opacity: 0.9, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+            whileHover={{ scale: 1.02, opacity: 1 }}
+            transition={SPRING_MODAL_ITEM}
+            className="absolute top-8 right-8 max-w-xs bg-background-dark/95 backdrop-blur-2xl p-5 rounded-2xl border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-20 pointer-events-auto overflow-hidden group/detail"
           >
-            <h4 className="text-sm font-bold text-white mb-1 font-mono truncate">{hoveredCell.name}</h4>
-            <div className="text-[10px] uppercase tracking-widest text-muted mb-4">{hoveredCell.type}</div>
+            <div className="absolute top-0 left-0 w-1 h-full opacity-50 bg-error" />
+            <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-error mb-3 flex items-center gap-2">
+              <Activity className="w-3.5 h-3.5" /> Churn Hotspot
+            </h4>
+            <h5 className="text-xs font-bold text-white mb-1 font-mono truncate">{hoveredCell.name}</h5>
+            <div className="text-[9px] uppercase tracking-[0.3em] text-muted mb-4 font-black">{hoveredCell.type}</div>
             
             <div className="space-y-3">
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-muted">Commits (24h)</span>
+              <div className="flex justify-between items-center text-[10px] font-mono border-b border-white/5 pb-2">
+                <span className="text-muted">Stability Index</span>
+                <span className={cn("font-bold", hoveredCell.temp > 0.8 ? "text-error" : "text-primary")}>{(1 - hoveredCell.temp).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between items-center text-[10px] font-mono border-b border-white/5 pb-2">
+                <span className="text-muted">Commits (Recent)</span>
                 <span className="text-white font-bold">{hoveredCell.commits}</span>
               </div>
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-muted">Size (LOC)</span>
-                <span className="text-white font-bold">{hoveredCell.size}</span>
-              </div>
-              <div className="flex justify-between items-center text-xs">
+              <div className="flex justify-between items-center text-[10px] font-mono border-b border-white/5 pb-2">
                 <span className="text-muted">Primary Author</span>
-                <span className="text-primary font-mono truncate ml-2">{hoveredCell.author.split('@')[0]}</span>
+                <span className="text-primary truncate ml-2">{hoveredCell.author.split('@')[0]}</span>
               </div>
+            </div>
+            <div className="mt-4 p-2 bg-error/10 border border-error/20 rounded text-[9px] text-error font-bold uppercase tracking-widest text-center">
+              Re-Review Recommended
             </div>
           </motion.div>
         )}
@@ -1044,22 +1078,31 @@ const SnapshotDeep = ({ data }: { data: any }) => {
       <AnimatePresence>
         {hoveredModule && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            className="absolute bottom-8 right-8 bg-surface/95 backdrop-blur-md p-6 rounded-xl border border-primary/30 pointer-events-none shadow-2xl w-64"
+            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            animate={{ opacity: 0.9, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+            whileHover={{ scale: 1.02, opacity: 1 }}
+            transition={SPRING_MODAL_ITEM}
+            className="absolute top-8 right-8 max-w-xs bg-background-dark/95 backdrop-blur-2xl p-5 rounded-2xl border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-20 pointer-events-auto overflow-hidden group/detail"
           >
-            <h4 className="text-sm font-bold text-white mb-1 font-mono">{hoveredModule.name}</h4>
-            <div className="text-[10px] uppercase tracking-widest text-muted mb-4">Module</div>
-            <div className="flex justify-between items-center text-xs mb-2">
-              <span className="text-muted">Files</span>
-              <span className="text-white font-bold">{hoveredModule.files}</span>
-            </div>
-            <div className="flex justify-between items-center text-xs">
-              <span className="text-muted">Churn Level</span>
-              <span className={cn("font-bold uppercase", hoveredModule.churn === 'high' ? "text-error" : hoveredModule.churn === 'medium' ? "text-primary" : "text-accent")}>
-                {hoveredModule.churn}
-              </span>
+            <div className="absolute top-0 left-0 w-1 h-full opacity-50 bg-mint" />
+            <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-[#00ffaa] mb-3 flex items-center gap-2">
+              <LayoutGrid className="w-3.5 h-3.5" /> Module Blueprint
+            </h4>
+            <h5 className="text-xs font-bold text-white mb-1 font-mono truncate">{hoveredModule.name}</h5>
+            <div className="text-[9px] uppercase tracking-[0.3em] text-muted mb-4 font-black">Architectural Tier</div>
+            
+            <div className="grid grid-cols-2 gap-2">
+              <div className="bg-white/5 p-3 rounded-lg border border-white/5">
+                <div className="text-[9px] text-muted mb-1 uppercase tracking-widest font-black">Files</div>
+                <div className="text-lg font-mono text-white font-bold">{hoveredModule.files}</div>
+              </div>
+              <div className="bg-white/5 p-3 rounded-lg border border-white/5">
+                <div className="text-[9px] text-muted mb-1 uppercase tracking-widest font-black">Activity</div>
+                <div className={cn("text-lg font-mono font-bold uppercase", hoveredModule.churn === 'high' ? "text-error" : "text-[#00ffaa]")}>
+                  {hoveredModule.churn}
+                </div>
+              </div>
             </div>
           </motion.div>
         )}
@@ -1280,24 +1323,28 @@ const NextDeep = ({ data }: { data: any }) => {
       <AnimatePresence>
         {hoveredBlip && (
           <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 20 }}
-            className="absolute top-8 right-8 bg-surface/95 backdrop-blur-md p-6 rounded-xl border border-primary/30 pointer-events-none shadow-2xl w-72"
+            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            animate={{ opacity: 0.9, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+            whileHover={{ scale: 1.02, opacity: 1 }}
+            transition={SPRING_MODAL_ITEM}
+            className="absolute top-8 right-8 max-w-xs bg-background-dark/95 backdrop-blur-2xl p-5 rounded-2xl border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-20 pointer-events-auto overflow-hidden group/detail"
           >
-            <div className="flex items-center gap-3 mb-4">
-              <Target className="w-5 h-5 text-primary" />
-              <h4 className="text-sm font-bold text-white font-mono">{hoveredBlip.title}</h4>
-            </div>
-            <div className="space-y-4">
+            <div className="absolute top-0 left-0 w-1 h-full opacity-50 bg-primary" />
+            <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-primary mb-3 flex items-center gap-2">
+              <Radar className="w-3.5 h-3.5" /> Forecast Blip
+            </h4>
+            <h5 className="text-xs font-bold text-white mb-1 font-mono truncate">{hoveredBlip.title}</h5>
+            
+            <div className="space-y-4 my-4">
               <div>
-                <span className="text-[9px] uppercase tracking-widest text-muted block mb-1">Distance (Urgency)</span>
-                <div className="h-1.5 w-full bg-background-dark rounded-full overflow-hidden">
-                  <div className="h-full bg-primary" style={{ width: `${(1 - hoveredBlip.distance) * 100}%` }} />
+                <span className="text-[9px] uppercase tracking-widest text-muted block mb-1 font-black">Urgency Vector</span>
+                <div className="h-1.5 w-full bg-background-dark rounded-full overflow-hidden border border-white/5">
+                  <div className="h-full bg-primary shadow-[0_0_10px_rgba(0,229,255,0.5)]" style={{ width: `${(1 - hoveredBlip.distance) * 100}%` }} />
                 </div>
               </div>
-              <p className="text-xs text-white/70 leading-relaxed">
-                Predicted next action based on current trajectory and historical patterns.
+              <p className="text-[10px] text-white/60 leading-relaxed font-mono bg-white/5 p-3 rounded border border-white/5">
+                Target established via predictive AST analysis. Distance factor indicates probable drift over the next 3 cycles.
               </p>
             </div>
           </motion.div>
@@ -1320,7 +1367,7 @@ const DependencyDeep = ({ data }: { data: any }) => (
         key={n.name}
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
-        transition={{ delay: i * 0.1 }}
+        transition={{ ...SPRING_SMOOTH, delay: i * 0.1 }}
         className="flex items-center gap-4"
       >
         <div className={cn(
@@ -1346,7 +1393,7 @@ const ReleaseDeep = ({ data }: { data: any }) => (
           key={h.title}
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: i * 0.1 }}
+          transition={{ ...SPRING_SMOOTH, delay: i * 0.1 }}
           className="mb-8 last:mb-0"
         >
           <h5 className="text-md font-bold text-primary mb-2">{h.title}</h5>
@@ -1635,6 +1682,13 @@ const extractMetrics = (type: string, data: any): { label: string; value: string
 };
 
 const MiniVis = ({ type, color, data, id }: { type: string, color: string, data: any, id: string }) => {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMounted(true);
+  }, []);
+  if (!mounted) return null;
+
   if (type === 'proportion') {
     // This chart answers the question: Of all documents ingested, what % were dropped by the static filter?
     const total = Math.max(1, data?.totalIngested || 1);
@@ -1788,9 +1842,9 @@ const MiniVis = ({ type, color, data, id }: { type: string, color: string, data:
     return (
       <div className="absolute inset-0 flex items-center justify-center opacity-80 mix-blend-screen">
         <svg viewBox="0 0 100 100" className="w-full h-[80%]">
-          <path d={`M 10 50 Q 50 ${50 - gap} 90 50`} fill="none" stroke={color} strokeWidth="2" strokeDasharray="4 2" opacity="0.6" />
+          <motion.path d={`M 10 50 Q 50 ${50 - gap} 90 50`} fill="none" stroke={color} strokeWidth="2" strokeDasharray="4 2" opacity="0.6" animate={{ strokeDashoffset: -20 }} transition={{ duration: 2, repeat: Infinity, ease: 'linear' }} />
           <path d={`M 10 50 Q 50 ${50 + gap} 90 50`} fill="none" stroke={color} strokeWidth="2" />
-          <line x1="50" y1={50 - gap/2} x2="50" y2={50 + gap/2} stroke={color} strokeWidth="0.5" opacity="0.4" />
+          <motion.line x1="50" y1={50 - gap/2} x2="50" y2={50 + gap/2} stroke={color} strokeWidth="0.5" opacity="0.4" animate={{ opacity: [0.1, 0.6, 0.1] }} transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }} />
         </svg>
       </div>
     );
@@ -1819,7 +1873,7 @@ const MiniVis = ({ type, color, data, id }: { type: string, color: string, data:
           })}
           {nodes.map((n: any, i: number) => {
             const angle = (i / nodes.length) * Math.PI * 2;
-            return <circle key={i} cx={50 + Math.cos(angle) * 35} cy={50 + Math.sin(angle) * 35} r={n.significance || 2} fill={color} />
+            return <motion.circle key={i} cx={50 + Math.cos(angle) * 35} cy={50 + Math.sin(angle) * 35} r={n.significance || 2} fill={color} animate={{ r: [n.significance || 2, (n.significance || 2) * 1.5, n.significance || 2] }} transition={{ duration: 2, repeat: Infinity, delay: i * 0.2 }} />
           })}
         </svg>
       </div>
@@ -1833,11 +1887,12 @@ const MiniVis = ({ type, color, data, id }: { type: string, color: string, data:
       <div className="absolute inset-0 flex items-center justify-center opacity-80 mix-blend-screen px-4">
         <div className="relative w-full h-[40px] flex items-center gap-1">
           <div className="absolute left-0 right-0 h-[1px] bg-white/20 top-1/2 -translate-y-1/2" />
+          <motion.div className="absolute left-0 h-[3px] bg-primary top-1/2 -translate-y-1/2 rounded" animate={{ left: ['0%', '100%'], opacity: [0, 1, 0] }} transition={{ duration: 3, repeat: Infinity, ease: 'linear' }} style={{ width: '20px' }} />
           {events.map((e: any, i: number) => {
             const h = e.impact === 'high' ? 24 : e.impact === 'medium' ? 16 : 8;
             return (
               <div key={i} className="flex-1 flex justify-center relative z-10">
-                <div className="w-1.5 rounded-full" style={{ height: `${h}px`, backgroundColor: color }} title={e.title} />
+                <motion.div className="w-1.5 rounded-full" animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 1.5, delay: i*0.1, repeat: Infinity }} style={{ height: `${h}px`, backgroundColor: color }} title={e.title} />
               </div>
             )
           })}
@@ -1930,13 +1985,19 @@ const MiniVis = ({ type, color, data, id }: { type: string, color: string, data:
     return (
       <div className="absolute inset-0 flex items-center justify-center opacity-80 mix-blend-screen">
         <svg viewBox="0 0 100 100" className="w-[80%] h-[80%]">
-          <circle cx="50" cy="50" r="45" fill="none" stroke={`${color}40`} strokeWidth="0.5" strokeDasharray="2 4" />
-          <circle cx="50" cy="50" r="25" fill="none" stroke={`${color}40`} strokeWidth="0.5" />
-          <circle cx="50" cy="50" r="5" fill={color} />
+          <motion.circle cx="50" cy="50" r="45" fill="none" stroke={`${color}40`} strokeWidth="0.5" strokeDasharray="2 4" animate={{ rotate: 360, transformOrigin: '50px 50px' }} transition={{ duration: 20, repeat: Infinity, ease: 'linear' }} />
+          <motion.circle cx="50" cy="50" r="25" fill="none" stroke={`${color}40`} strokeWidth="0.5" animate={{ rotate: -360, transformOrigin: '50px 50px' }} transition={{ duration: 15, repeat: Infinity, ease: 'linear' }} />
+          <motion.circle cx="50" cy="50" r="5" fill={color} animate={{ opacity: [0.3, 1, 0.3], r: [4, 6, 4] }} transition={{ duration: 2, repeat: Infinity }} />
+          <g>
+            <motion.path d="M 50 50 L 95 50" stroke={`${color}80`} strokeWidth="1" strokeDasharray="1 3"
+              animate={{ transformOrigin: '50px 50px', rotate: [0, 360] }}
+              transition={{ duration: 4, repeat: Infinity, ease: 'linear' }}
+            />
+          </g>
           {blips.map((b: any, i: number) => {
             const angle = (i / blips.length) * Math.PI * 2;
             const r = (b.distance || 0.5) * 45;
-            return <circle key={i} cx={50 + Math.cos(angle)*r} cy={50 + Math.sin(angle)*r} r="2" fill={color} />
+            return <motion.circle key={i} cx={50 + Math.cos(angle)*r} cy={50 + Math.sin(angle)*r} r="2" fill={color} animate={{ opacity: [1, 0.2, 1] }} transition={{ duration: 1.5, repeat: Infinity, delay: i }} />
           })}
         </svg>
       </div>
@@ -1951,7 +2012,7 @@ const MiniVis = ({ type, color, data, id }: { type: string, color: string, data:
         {nodes.map((n: any, i: number) => {
           const isLegacy = n.status === 'legacy';
           return (
-            <div key={i} className="h-2 rounded border" style={{ borderColor: isLegacy ? 'rgba(255,255,255,0.1)' : color, backgroundColor: isLegacy ? 'rgba(255,255,255,0.05)' : color, opacity: isLegacy ? 0.4 : 1 }} />
+            <motion.div key={i} className="h-2 rounded border" style={{ borderColor: isLegacy ? 'rgba(255,255,255,0.1)' : color, backgroundColor: isLegacy ? 'rgba(255,255,255,0.05)' : color, opacity: isLegacy ? 0.4 : 1 }} animate={isLegacy ? {} : { scaleX: [1, 1.05, 1], filter: ['brightness(1)', 'brightness(1.5)', 'brightness(1)'] }} transition={{ duration: 2, repeat: Infinity, delay: i * 0.2 }} />
           )
         })}
       </div>
@@ -1966,7 +2027,7 @@ const MiniVis = ({ type, color, data, id }: { type: string, color: string, data:
         <svg viewBox="0 0 100 100" className="w-[80%] h-[80%]">
           {highlights.map((h: any, i: number) => {
             const size = Math.min(45, (h.description?.length || 10) / 2);
-            return <circle key={i} cx="50" cy="50" r={size} fill="none" stroke={color} strokeWidth="1" opacity={0.3 + (i*0.2)} />
+            return <motion.circle key={i} cx="50" cy="50" r={size} fill="none" stroke={color} strokeWidth="1" animate={{ opacity: [0, 0.5, 0], scale: [0.8, 1.2, 0.8], transformOrigin: '50% 50%' }} transition={{ duration: 3, repeat: Infinity, delay: i * 0.5 }} />
           })}
           <circle cx="50" cy="50" r="2" fill="#fff" />
         </svg>
@@ -1985,11 +2046,13 @@ const MiniVis = ({ type, color, data, id }: { type: string, color: string, data:
 const ExhibitTile = ({ 
   artifact, 
   isDeep, 
-  onToggle 
+  onToggle,
+  index = 0
 }: { 
   artifact: ExhibitArtifact, 
   isDeep: boolean, 
-  onToggle: () => void 
+  onToggle: () => void,
+  index?: number
 }) => {
   const Icon = EXHIBIT_ICONS[artifact.type] || Terminal;
   const color = TYPE_COLORS[artifact.type] || '#ffffff';
@@ -2027,7 +2090,7 @@ const ExhibitTile = ({
         <motion.div 
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1, ease: EASE_PREMIUM }}
+          transition={{ ...SPRING_QUICK, delay: 0.1 }}
           className="p-6 border-b border-white/5 flex items-center justify-between bg-black/20"
         >
           <div className="flex items-center gap-4">
@@ -2057,19 +2120,25 @@ const ExhibitTile = ({
            {/* Floating Agent Narrative */}
            <motion.div 
              initial={{ opacity: 0, y: 20, scale: 0.95 }}
-             animate={{ opacity: 0.3, y: 0, scale: 1 }}
-             whileHover={{ opacity: 1, scale: 1.02 }}
-             transition={{ duration: 0.5, delay: 0.2, ease: EASE_PREMIUM }}
-             className="absolute top-12 right-12 max-w-xs bg-surface/80 backdrop-blur-md p-4 rounded-xl border border-white/10 shadow-2xl z-10 pointer-events-auto"
+             animate={{ opacity: 0.9, y: 0, scale: 1 }}
+             whileHover={{ scale: 1.02, opacity: 1 }}
+             transition={{ ...SPRING_SMOOTH, delay: 0.2 }}
+             className="absolute top-8 right-8 max-w-xs bg-background-dark/95 backdrop-blur-2xl p-5 rounded-2xl border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-20 pointer-events-auto overflow-hidden group/narrative"
            >
-             <h4 className="text-[9px] font-black uppercase tracking-widest mb-2 flex items-center gap-2" style={{ color: color }}>
-               <ScrollText className="w-3 h-3" /> Agent Narrative
+             <div className="absolute top-0 left-0 w-1 h-full opacity-50" style={{ backgroundColor: color }} />
+             <h4 className="text-[10px] font-black uppercase tracking-[0.3em] mb-3 flex items-center gap-2" style={{ color: color }}>
+               <ScrollText className="w-3.5 h-3.5" /> Agent Narrative
              </h4>
-             <p className="text-xs text-white/80 leading-relaxed italic">{artifact.narrative}</p>
-             <div className="mt-4 pt-4 border-t border-white/5">
-               <p className="text-[9px] uppercase tracking-[0.2em] text-white/40 font-black">
-                 Whisper: {artifact.type} state {artifact.severity === 'critical' ? 'unstable' : 'nominal'}
+             <p className="text-xs text-white/90 leading-relaxed font-mono opacity-80 group-hover/narrative:opacity-100 transition-opacity whitespace-pre-wrap">{artifact.narrative}</p>
+             <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between">
+               <p className="text-[9px] uppercase tracking-[0.2em] text-white/30 font-black">
+                 Status: <span className={artifact.severity === 'critical' ? 'text-error' : 'text-primary'}>{artifact.severity === 'critical' ? 'UNSTABLE' : 'NOMINAL'}</span>
                </p>
+               <div className="flex gap-1">
+                  {[1,2,3].map(i => (
+                    <div key={i} className="w-1 h-1 rounded-full bg-white/10" />
+                  ))}
+               </div>
              </div>
            </motion.div>
            
@@ -2077,7 +2146,7 @@ const ExhibitTile = ({
            <motion.div
              initial={{ opacity: 0, scale: 0.98, y: 20 }}
              animate={{ opacity: 1, scale: 1, y: 0 }}
-             transition={{ duration: 0.6, delay: 0.3, ease: EASE_PREMIUM }}
+             transition={{ ...SPRING_SMOOTH, delay: 0.3 }}
              className="w-full h-full"
            >
              {artifact.type === 'focus' && <FocusDeep data={artifact.data} />}
@@ -2111,6 +2180,19 @@ const ExhibitTile = ({
     onToggle();
   };
 
+  // Bento Span Logic
+  const patterns = [
+    "md:col-span-12 lg:col-span-8 row-span-2 h-auto min-h-[624px]", // Hero wide & tall
+    "md:col-span-6 lg:col-span-4 row-span-1 h-80", // Standard
+    "md:col-span-6 lg:col-span-4 row-span-1 h-80", // Standard
+    "md:col-span-6 lg:col-span-4 row-span-1 h-80", // Standard
+    "md:col-span-6 lg:col-span-6 row-span-1 h-80", // Wide
+    "md:col-span-6 lg:col-span-6 row-span-1 h-80", // Wide
+    "md:col-span-12 lg:col-span-8 row-span-1 h-80", // Very wide
+    "md:col-span-6 lg:col-span-4 row-span-2 h-auto min-h-[624px]", // Tall
+  ];
+  const spanClass = isDeep ? "col-span-12 h-screen" : patterns[index % patterns.length];
+
   return (
     <motion.div
       layoutId={`card-${artifact.id}`}
@@ -2118,15 +2200,12 @@ const ExhibitTile = ({
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
       onMouseEnter={() => sounds.tick(artifact.severity as any)}
-      whileHover={{ scale: 1.02, y: -4 }}
+      whileHover={{ y: -8 }}
       whileTap={{ scale: 0.98 }}
       transition={SPRING_EXPAND}
-      className="relative group cursor-pointer border rounded-[2rem] flex flex-col h-80 w-full"
+      className={cn("col-span-12 relative group cursor-pointer border rounded-[2rem] flex flex-col w-full", spanClass)}
       style={{ 
-        borderColor: 'transparent',
-        perspective: '1200px',
-        rotateX,
-        rotateY
+        borderColor: 'transparent'
       }}
     >
       <motion.div
@@ -2157,11 +2236,11 @@ const ExhibitTile = ({
             <p className="text-[11px] font-mono text-white/70 leading-relaxed mb-4 line-clamp-3">{artifact.summary}</p>
             
             {/* Strict epistemic visualization area */}
-            <div className="bg-[#030308] border border-white/5 rounded-lg p-3 mb-4 shrink-0 relative overflow-hidden" style={{ height: '90px' }}>
+            <div className="bg-[#030308] border border-white/5 rounded-lg p-3 mb-4 shrink-0 flex-1 relative overflow-hidden" style={{ minHeight: '90px' }}>
                <div className="text-[9px] font-mono uppercase tracking-widest text-muted mb-2 flex justify-between absolute top-2 left-3 right-3 z-10">
                   <span>Telemetry</span>
                </div>
-               <div className="absolute inset-0 top-6 px-3 pb-3">
+               <div className="absolute inset-0 pt-8 pb-3 px-3">
                  <MiniVis type={artifact.type} color={color} data={artifact.data} id={artifact.id} />
                </div>
             </div>
@@ -2306,6 +2385,7 @@ export default function RepoVis() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isAmbientPlaying, setIsAmbientPlaying] = useState(false);
   const [isAudioDebugOpen, setIsAudioDebugOpen] = useState(false);
+  const [isMotionEnabled, setIsMotionEnabled] = useState(true);
 
   useEffect(() => {
     logger.info('System', 'Booting RepoVis engine...');
@@ -2366,9 +2446,10 @@ export default function RepoVis() {
   };
 
   return (
-    <div className="min-h-screen bg-background-dark text-text-main selection:bg-primary/30 overflow-x-hidden font-sans transition-colors duration-1000" style={{ backgroundColor: globalHealthColor }}>
-      {/* Global Scanline Overlay */}
-      <div className="fixed inset-0 pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.05)_50%),linear-gradient(90deg,rgba(255,0,0,0.01),rgba(0,255,0,0.005),rgba(0,0,255,0.01))] bg-[length:100%_2px,2px_100%] z-[100] opacity-30" />
+    <MotionConfig reducedMotion={isMotionEnabled ? "never" : "always"}>
+      <div className="min-h-screen bg-background-dark text-text-main selection:bg-primary/30 overflow-x-hidden font-sans transition-colors duration-1000" style={{ backgroundColor: globalHealthColor }}>
+        {/* Global Scanline Overlay */}
+        <div className="fixed inset-0 pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.05)_50%),linear-gradient(90deg,rgba(255,0,0,0.01),rgba(0,255,0,0.005),rgba(0,0,255,0.01))] bg-[length:100%_2px,2px_100%] z-[100] opacity-30" />
 
       {/* IDE Pane Container -> Now Full Screen Grid */}
       <div className="w-full mx-auto min-h-screen relative flex flex-col px-4 2xl:px-8">
@@ -2403,6 +2484,18 @@ export default function RepoVis() {
           </div>
 
           <div className="flex items-center gap-3 shrink-0">
+            <button
+              onClick={() => { sounds.tick(); setIsMotionEnabled(!isMotionEnabled); }}
+              className={cn(
+                "w-10 h-10 rounded-xl flex items-center justify-center transition-all border",
+                isMotionEnabled ? "bg-accent/20 border-accent/40 text-accent shadow-[0_0_15px_rgba(0,229,255,0.3)]" : "bg-surface border-white/10 text-muted"
+              )}
+              title={isMotionEnabled ? "Motion Active" : "Motion Paused"}
+            >
+              <motion.div animate={isMotionEnabled ? { rotate: 360 } : { rotate: 0 }} transition={{ duration: 2, repeat: isMotionEnabled ? Infinity : 0, ease: "linear" }}>
+                <Zap className="w-5 h-5" />
+              </motion.div>
+            </button>
             <button
               onClick={toggleAmbient}
               className={cn(
@@ -2492,18 +2585,19 @@ export default function RepoVis() {
           <LayoutGroup>
             <div className={cn(
               "grid gap-6 transition-all duration-700",
-              deepExhibitId ? "grid-cols-1" : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+              deepExhibitId ? "grid-cols-1" : "grid-cols-12 auto-rows-max"
             )}>
-              {filteredExhibits.map((artifact) => {
+              {filteredExhibits.map((artifact, idx) => {
                 // If a deep exhibit is active, hide the others
                 if (deepExhibitId && deepExhibitId !== artifact.id) return null;
                 
                 return (
                   <ExhibitTile 
-                    key={artifact.id}
+                    key={artifact.id} 
                     artifact={artifact}
                     isDeep={deepExhibitId === artifact.id}
                     onToggle={() => toggleDeep(artifact.id)}
+                    index={idx}
                   />
                 );
               })}
@@ -2527,5 +2621,6 @@ export default function RepoVis() {
         <AudioDebugPanel isOpen={isAudioDebugOpen} onClose={() => setIsAudioDebugOpen(false)} />
       </div>
     </div>
-  );
+  </MotionConfig>
+);
 }
