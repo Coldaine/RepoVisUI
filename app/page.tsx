@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence, LayoutGroup, useMotionValue, useSpring, useTransform, MotionConfig } from 'motion/react';
+import { motion, AnimatePresence, LayoutGroup, useMotionValue, useSpring, useTransform, MotionConfig, useAnimationFrame } from 'motion/react';
 import { MOCK_EXHIBITS, ExhibitArtifact, EXHIBIT_ICONS } from '@/lib/exhibits';
 import { cn } from '@/lib/utils';
 import { sounds } from '@/lib/audio';
@@ -1683,9 +1683,16 @@ const extractMetrics = (type: string, data: any): { label: string; value: string
 
 const MiniVis = ({ type, color, data, id }: { type: string, color: string, data: any, id: string }) => {
   const [mounted, setMounted] = useState(false);
+  const [time, setTime] = useState(0);
+
+  useAnimationFrame((t) => {
+    if (type !== 'snapshot' && type !== 'convention') return;
+    setTime(t / 1000);
+  });
+
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setMounted(true);
+    const t = setTimeout(() => setMounted(true), 0);
+    return () => clearTimeout(t);
   }, []);
   if (!mounted) return null;
 
@@ -1881,21 +1888,28 @@ const MiniVis = ({ type, color, data, id }: { type: string, color: string, data:
   }
 
   if (type === 'timeline') {
-    // 2-SECOND RULE: Event count maps to dots, height maps to 'impact'.
-    const events = data?.events || [];
     return (
-      <div className="absolute inset-0 flex items-center justify-center opacity-80 mix-blend-screen px-4">
-        <div className="relative w-full h-[40px] flex items-center gap-1">
-          <div className="absolute left-0 right-0 h-[1px] bg-white/20 top-1/2 -translate-y-1/2" />
-          <motion.div className="absolute left-0 h-[3px] bg-primary top-1/2 -translate-y-1/2 rounded" animate={{ left: ['0%', '100%'], opacity: [0, 1, 0] }} transition={{ duration: 3, repeat: Infinity, ease: 'linear' }} style={{ width: '20px' }} />
-          {events.map((e: any, i: number) => {
-            const h = e.impact === 'high' ? 24 : e.impact === 'medium' ? 16 : 8;
-            return (
-              <div key={i} className="flex-1 flex justify-center relative z-10">
-                <motion.div className="w-1.5 rounded-full" animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 1.5, delay: i*0.1, repeat: Infinity }} style={{ height: `${h}px`, backgroundColor: color }} title={e.title} />
-              </div>
-            )
-          })}
+      <div className="absolute inset-0 flex items-center justify-center opacity-90 px-8">
+        <div className="relative w-full h-[60px] flex items-center justify-between">
+          <div className="absolute left-0 right-0 h-[2px] opacity-40 top-1/2 -translate-y-1/2" style={{ backgroundColor: color }} />
+          {[20, -30, 20, -15, 30].map((h, i) => (
+             <div key={i} className="relative flex flex-col items-center">
+               <motion.div 
+                 className="w-[2px] opacity-80" 
+                 style={{ backgroundColor: color, height: Math.abs(h), position: 'absolute', [h > 0 ? 'bottom' : 'top']: '50%' }}
+                 initial={{ scaleY: 0 }}
+                 animate={{ scaleY: 1 }}
+                 transition={{ duration: 1, ease: 'easeOut', delay: i * 0.15 }}
+               />
+               <motion.div 
+                 className="w-4 h-[4px] absolute" 
+                 style={{ backgroundColor: color, [h > 0 ? 'bottom' : 'top']: `calc(50% + ${Math.abs(h)}px)` }}
+                 initial={{ opacity: 0, scaleX: 0 }}
+                 animate={{ opacity: 1, scaleX: 1 }}
+                 transition={{ duration: 0.5, delay: i * 0.15 + 0.3 }}
+               />
+             </div>
+          ))}
         </div>
       </div>
     );
@@ -1924,22 +1938,121 @@ const MiniVis = ({ type, color, data, id }: { type: string, color: string, data:
   }
 
   if (type === 'snapshot') {
-    // 2-SECOND RULE: Block width maps to file count, fill opacity maps to churn level.
-    const modules = data?.modules || [];
-    const totalFiles = Math.max(1, modules.reduce((s:number, m:any) => s + (m.files || 0), 0));
+    const cx = 100;
+    const cy = 115;
+    const scaleX = 24;
+    const scaleY = 12;
+    const dx = 14;
+    const dy = 7;
+
+    const blocks = [
+      { x: -1, y: -1, h: 22, colorShift: 0, label: "GATE" },
+      { x: 0, y: -1, h: 32, colorShift: 1, label: "AUTH" },
+      { x: 1, y: -1, h: 18, colorShift: 2, label: "MEM" },
+      { x: -1, y: 0, h: 35, colorShift: 3, label: "QUE" },
+      { x: 0, y: 0, h: 50, colorShift: 4, label: "CORE" },
+      { x: 1, y: 0, h: 28, colorShift: 5, label: "DB" },
+      { x: -1, y: 1, h: 14, colorShift: 6, label: "W1" },
+      { x: 0, y: 1, h: 20, colorShift: 7, label: "W2" },
+      { x: 1, y: 1, h: 10, colorShift: 8, label: "LOG" }
+    ];
+
+    // Painters algorithm: sort back to front
+    const sortedBlocks = [...blocks].sort((a, b) => (a.x + a.y) - (b.x + b.y));
+
     return (
-      <div className="absolute inset-0 flex items-center justify-center gap-1 opacity-90 p-4">
-        {modules.map((m: any, i: number) => {
-          const w = Math.max(10, ((m.files || 0) / totalFiles) * 100);
-          const opacity = m.churn === 'high' ? '1.0' : m.churn === 'medium' ? '0.6' : '0.2';
-          return (
-             <div key={i} className="h-6 rounded-sm border"
-               style={{ width: `${w}%`, borderColor: color, opacity: Number(opacity) }}
-             >
-                <div className="w-full h-full" style={{ backgroundColor: color }} />
-             </div>
-          )
-        })}
+      <div className="absolute inset-0 flex items-center justify-center opacity-95 overflow-hidden">
+        <svg viewBox="0 0 200 200" className="w-[85%] h-[85%] overflow-visible">
+          {/* Base Grid Plane Lines */}
+          <g opacity="0.15">
+            {[-1.5, -0.5, 0.5, 1.5].map((val) => {
+              const x1 = cx + (val - 1.5) * scaleX;
+              const y1 = cy + (val + 1.5) * scaleY;
+              const x2 = cx + (val + 1.5) * scaleX;
+              const y2 = cy + (val - 1.5) * scaleY;
+
+              const x3 = cx + (1.5 - val) * scaleX;
+              const y3 = cy + (1.5 + val) * scaleY;
+              const x4 = cx + (-1.5 - val) * scaleX;
+              const y4 = cy + (-1.5 + val) * scaleY;
+              return (
+                <g key={val}>
+                  <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={color} strokeWidth="0.75" />
+                  <line x1={x3} y1={y3} x2={x4} y2={y4} stroke={color} strokeWidth="0.75" />
+                </g>
+              );
+            })}
+          </g>
+
+          {/* Isometric Blocks */}
+          {sortedBlocks.map((b, idxVal) => {
+            const px = cx + (b.x - b.y) * scaleX;
+            const py = cy + (b.x + b.y) * scaleY;
+            const h = Math.max(6, b.h + Math.sin(time * 2.8 + b.colorShift * 0.7) * 14);
+
+            const topD = `M ${px} ${py - h - dy} L ${px + dx} ${py - h} L ${px} ${py - h + dy} L ${px - dx} ${py - h} Z`;
+            const leftD = `M ${px - dx} ${py - h} L ${px} ${py - h + dy} L ${px} ${py + dy} L ${px - dx} ${py} Z`;
+            const rightD = `M ${px} ${py - h + dy} L ${px + dx} ${py - h} L ${px + dx} ${py} L ${px} ${py + dy} Z`;
+
+            return (
+              <g key={idxVal} className="group cursor-pointer">
+                {/* 3D Shadows */}
+                <path 
+                  d={`M ${px} ${py + dy} L ${px + dx} ${py} L ${px} ${py - dy} L ${px - dx} ${py} Z`}
+                  fill="black"
+                  opacity="0.35"
+                  className="transition-all duration-300"
+                />
+
+                {/* Left Face */}
+                <path 
+                  d={leftD} 
+                  fill={color} 
+                  opacity="0.65" 
+                  stroke={color}
+                  strokeWidth="0.5"
+                  strokeOpacity="0.3"
+                  className="transition-all duration-300 group-hover:brightness-125"
+                />
+
+                {/* Right Face */}
+                <path 
+                  d={rightD} 
+                  fill={color} 
+                  opacity="0.45" 
+                  stroke={color}
+                  strokeWidth="0.5"
+                  strokeOpacity="0.3"
+                  className="transition-all duration-300 group-hover:brightness-125"
+                />
+
+                {/* Top Face */}
+                <path 
+                  d={topD} 
+                  fill={color} 
+                  opacity="0.9" 
+                  stroke="#ffffff"
+                  strokeWidth="0.75"
+                  strokeOpacity="0.6"
+                  className="transition-all duration-300 group-hover:brightness-150"
+                  style={{ filter: `drop-shadow(0 0 4px ${color}50)` }}
+                />
+
+                {/* Floating Micro Labels */}
+                <text 
+                  x={px} 
+                  y={py - h - dy - 4} 
+                  textAnchor="middle" 
+                  fontSize="5.5" 
+                  fill="white" 
+                  className="font-mono tracking-widest font-bold fill-white transition-opacity duration-300 opacity-0 group-hover:opacity-100 select-none pointer-events-none"
+                >
+                  {b.label}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
       </div>
     );
   }
@@ -1962,59 +2075,127 @@ const MiniVis = ({ type, color, data, id }: { type: string, color: string, data:
   }
 
   if (type === 'convention') {
-    // 2-SECOND RULE: Visually compare the literal volume of the 'before' block vs 'after' block.
-    const beforeLen = data?.before?.length || 1;
-    const afterLen = data?.after?.length || 1;
-    const ratio = Math.min(beforeLen / afterLen, 10);
+    const centerY = 50;
+    const width = 360;
+    const points1 = [];
+    const points2 = [];
+
+    for (let i = 0; i <= 90; i++) {
+      const x = (i / 90) * width;
+      const angle = (x / 120) * Math.PI * 2; // Wavelength 120
+      const y1 = centerY + Math.sin(angle) * 18;
+      const y2 = centerY + Math.sin(angle + Math.PI) * 12; // 180 degrees offset (dual)
+      points1.push(`${x},${y1}`);
+      points2.push(`${x},${y2}`);
+    }
+
+    const path1 = `M ${points1.join(' L ')}`;
+    const path2 = `M ${points2.join(' L ')}`;
+
     return (
-      <div className="absolute inset-0 flex items-center justify-center gap-4 opacity-90 p-4">
-         <div className="w-8 border-t-4 border-white/20 relative" style={{ height: `40%` }}>
-            <div className="absolute inset-0 bg-white/5" />
-         </div>
-         <ArrowLeft className="w-4 h-4 text-white/20 rotate-180" />
-         <div className="w-8 border-t-4 relative" style={{ height: `${Math.min(100, 40 / ratio)}%`, borderColor: color }}>
-            <div className="absolute inset-0 opacity-20" style={{ backgroundColor: color }} />
-         </div>
+      <div className="absolute inset-0 flex items-center justify-center opacity-95 overflow-hidden mix-blend-screen">
+        <svg viewBox="0 0 200 100" className="w-[140%] h-[140%] overflow-visible">
+          {/* Back grid line layer for a technical feel */}
+          <line x1="0" y1="50" x2="240" y2="50" stroke={`${color}15`} strokeWidth="1" strokeDasharray="3 3" />
+          
+          <motion.g 
+            animate={{ x: [-120, 0] }} 
+            transition={{ duration: 6, repeat: Infinity, ease: 'linear' }}
+          >
+            {/* Background Sub-Wave (Out of phase, dashed) */}
+            <path 
+              d={path2} 
+              fill="none" 
+              stroke={color} 
+              strokeWidth="1.25" 
+              opacity="0.35" 
+              strokeDasharray="4 4" 
+            />
+
+            {/* Primary Glowing Wave */}
+            <path 
+              d={path1} 
+              fill="none" 
+              stroke={color} 
+              strokeWidth="2.5" 
+              strokeLinecap="round"
+              opacity="0.85" 
+              style={{ filter: `drop-shadow(0 0 6px ${color})` }}
+            />
+
+            {/* Glowing signal spark moving down the primary wave */}
+            <motion.path 
+              d={path1} 
+              fill="none" 
+              stroke="#ffffff" 
+              strokeWidth="3.5" 
+              strokeLinecap="round"
+              strokeDasharray="8 112" // Period of 120
+              animate={{ strokeDashoffset: [240, 0] }}
+              transition={{ duration: 4, repeat: Infinity, ease: 'linear' }}
+              style={{ filter: `drop-shadow(0 0 4px ${color})` }}
+            />
+
+            {/* Glowing signal spark moving down secondary wave */}
+            <motion.path 
+              d={path2} 
+              fill="none" 
+              stroke="#ffffff" 
+              strokeWidth="2" 
+              strokeLinecap="round"
+              strokeDasharray="6 114" 
+              animate={{ strokeDashoffset: [0, 240] }} // Reverse speed/direction
+              transition={{ duration: 5, repeat: Infinity, ease: 'linear' }}
+              opacity="0.75"
+            />
+          </motion.g>
+        </svg>
       </div>
     );
   }
 
   if (type === 'next') {
-    // 2-SECOND RULE: Distance maps precisely to incoming feature proximity.
-    const blips = data?.blips || [];
     return (
-      <div className="absolute inset-0 flex items-center justify-center opacity-80 mix-blend-screen">
-        <svg viewBox="0 0 100 100" className="w-[80%] h-[80%]">
-          <motion.circle cx="50" cy="50" r="45" fill="none" stroke={`${color}40`} strokeWidth="0.5" strokeDasharray="2 4" animate={{ rotate: 360, transformOrigin: '50px 50px' }} transition={{ duration: 20, repeat: Infinity, ease: 'linear' }} />
-          <motion.circle cx="50" cy="50" r="25" fill="none" stroke={`${color}40`} strokeWidth="0.5" animate={{ rotate: -360, transformOrigin: '50px 50px' }} transition={{ duration: 15, repeat: Infinity, ease: 'linear' }} />
-          <motion.circle cx="50" cy="50" r="5" fill={color} animate={{ opacity: [0.3, 1, 0.3], r: [4, 6, 4] }} transition={{ duration: 2, repeat: Infinity }} />
-          <g>
-            <motion.path d="M 50 50 L 95 50" stroke={`${color}80`} strokeWidth="1" strokeDasharray="1 3"
-              animate={{ transformOrigin: '50px 50px', rotate: [0, 360] }}
-              transition={{ duration: 4, repeat: Infinity, ease: 'linear' }}
-            />
-          </g>
-          {blips.map((b: any, i: number) => {
-            const angle = (i / blips.length) * Math.PI * 2;
-            const r = (b.distance || 0.5) * 45;
-            return <motion.circle key={i} cx={50 + Math.cos(angle)*r} cy={50 + Math.sin(angle)*r} r="2" fill={color} animate={{ opacity: [1, 0.2, 1] }} transition={{ duration: 1.5, repeat: Infinity, delay: i }} />
-          })}
+      <div className="absolute inset-0 flex items-center justify-center opacity-90 mix-blend-screen">
+        <svg viewBox="0 0 100 100" className="w-[80%] h-[80%] overflow-visible relative">
+          <circle cx="50" cy="50" r="40" fill="none" stroke={`${color}40`} strokeWidth="1" strokeDasharray="2 4" />
+          <circle cx="50" cy="50" r="20" fill="none" stroke={`${color}20`} strokeWidth="0.5" />
+          
+          <motion.g animate={{ rotate: 360, transformOrigin: '50px 50px' }} transition={{ duration: 4, repeat: Infinity, ease: 'linear' }}>
+            <path d="M 50 50 L 50 10 A 40 40 0 0 1 80 20 Z" fill={`url(#radar-sweep-${id})`} opacity="0.8" />
+            <line x1="50" y1="50" x2="50" y2="10" stroke={color} strokeWidth="1" />
+          </motion.g>
+
+          <motion.circle cx="70" cy="30" r="3" fill={color} animate={{ opacity: [1, 0.4, 1] }} transition={{ duration: 2, repeat: Infinity }} style={{ filter: `drop-shadow(0 0 5px ${color})` }} />
+          
+          <defs>
+            <linearGradient id={`radar-sweep-${id}`} x1="50" y1="50" x2="80" y2="20" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stopColor={color} stopOpacity="0.8" />
+              <stop offset="100%" stopColor={color} stopOpacity="0" />
+            </linearGradient>
+          </defs>
         </svg>
       </div>
     );
   }
 
   if (type === 'dependency') {
-    // 2-SECOND RULE: Stack structure. Brightness = migration status.
-    const nodes = data?.nodes || [];
     return (
-      <div className="absolute inset-0 flex flex-col justify-center gap-2 opacity-90 p-8">
-        {nodes.map((n: any, i: number) => {
-          const isLegacy = n.status === 'legacy';
-          return (
-            <motion.div key={i} className="h-2 rounded border" style={{ borderColor: isLegacy ? 'rgba(255,255,255,0.1)' : color, backgroundColor: isLegacy ? 'rgba(255,255,255,0.05)' : color, opacity: isLegacy ? 0.4 : 1 }} animate={isLegacy ? {} : { scaleX: [1, 1.05, 1], filter: ['brightness(1)', 'brightness(1.5)', 'brightness(1)'] }} transition={{ duration: 2, repeat: Infinity, delay: i * 0.2 }} />
-          )
-        })}
+      <div className="absolute inset-0 flex items-center justify-center opacity-90 p-4">
+        <svg viewBox="0 0 100 100" className="w-[80%] h-[80%] overflow-visible">
+          {/* Top Node */}
+          <rect x="35" y="25" width="30" height="10" rx="2" fill={color} />
+          {/* Links */}
+          <path d="M 50 35 L 50 50 L 25 50 L 25 65" fill="none" stroke={color} strokeWidth="3" opacity="0.4" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M 50 35 L 50 50 L 75 50 L 75 65" fill="none" stroke={color} strokeWidth="3" opacity="0.4" strokeLinecap="round" strokeLinejoin="round" />
+          {/* Bottom Nodes */}
+          <rect x="15" y="65" width="20" height="8" rx="1.5" fill={color} />
+          <rect x="65" y="65" width="20" height="8" rx="1.5" fill={color} />
+          {/* Animation Glow */}
+          <motion.rect x="35" y="25" width="30" height="10" rx="2" fill={color} animate={{ opacity: [0, 0.6, 0], filter: ['blur(0px)', 'blur(8px)', 'blur(0px)'] }} transition={{ duration: 3, repeat: Infinity }} />
+          <motion.rect x="15" y="65" width="20" height="8" rx="1.5" fill={color} animate={{ opacity: [0, 0.6, 0], filter: ['blur(0px)', 'blur(5px)', 'blur(0px)'] }} transition={{ duration: 3, repeat: Infinity, delay: 0.5 }} />
+          <motion.rect x="65" y="65" width="20" height="8" rx="1.5" fill={color} animate={{ opacity: [0, 0.6, 0], filter: ['blur(0px)', 'blur(5px)', 'blur(0px)'] }} transition={{ duration: 3, repeat: Infinity, delay: 1 }} />
+        </svg>
       </div>
     );
   }
@@ -2377,6 +2558,112 @@ const AudioDebugPanel = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => 
   );
 };
 
+// --- Agent Control Center (TerminalPanel) ---
+const mockTerminalLogs = [
+  { id: 1, time: '10:50:33 PM', badge: 'unhooked', badgeColor: 'text-muted bg-white/5 border-white/10', text: 'Create ErrorBanner component and validation helper' },
+  { id: 2, time: '10:50:28 PM', badge: 'status_changed', badgeColor: 'text-primary bg-primary/10 border-primary/20', text: '"Create SidePanel component for node detail view" → open (by agent system...)' },
+  { id: 3, time: '10:50:22 PM', badge: 'status_changed', badgeColor: 'text-primary bg-primary/10 border-primary/20', text: '"Review: convoy/coldtrace-sidepanel-fileloader-errorbann/5009c9ed/gt/maple/d0e16733" → failed (by agent sy...)' },
+  { id: 4, time: '10:50:22 PM', badge: 'unhooked', badgeColor: 'text-muted bg-white/5 border-white/10', text: 'unhooked: "Review: convoy/coldtrace-sidepanel-fileloader-errorbann/5009c9ed/gt/maple/d0e16733"' },
+  { id: 5, time: '10:49:10 PM', badge: 'status_changed', badgeColor: 'text-primary bg-primary/10 border-primary/20', text: '"Create FileLoader component extracted from App.tsx" → open (by agent system...)' },
+  { id: 6, time: '10:49:10 PM', badge: 'unhooked', badgeColor: 'text-muted bg-white/5 border-white/10', text: 'unhooked: "Create FileLoader component extracted from App.tsx"' },
+  { id: 7, time: '10:48:55 PM', badge: 'status_changed', badgeColor: 'text-primary bg-primary/10 border-primary/20', text: '"Create ErrorBanner component and validation helper" → in_progress (by agent 46f7cfbd...)' },
+  { id: 8, time: '10:48:46 PM', badge: 'hooked', badgeColor: 'text-accent bg-accent/10 border-accent/20', text: 'hooked: "Create ErrorBanner component"' },
+];
+
+const TerminalPanel = () => {
+  return (
+    <motion.div 
+      initial={{ y: 200, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ duration: 0.8, delay: 0.5, ease: "easeOut" }}
+      className="h-[300px] shrink-0 border-t border-white/10 bg-[#121315] flex flex-col relative z-[50]"
+    >
+      {/* Tabs */}
+      <div className="h-10 shrink-0 border-b border-white/5 flex items-center px-6 gap-6 bg-[#0f1011]">
+        <div className="flex items-center gap-2 pr-6 border-r border-white/5 text-muted">
+          <Terminal className="w-4 h-4" />
+          <Server className="w-4 h-4 ml-2" />
+        </div>
+        <button className="h-full border-b-2 border-primary text-primary text-xs font-mono font-bold tracking-widest flex items-center gap-2">
+          <Activity className="w-3.5 h-3.5" />
+          Status
+        </button>
+        <button className="h-full border-b-2 border-transparent text-muted hover:text-white text-xs font-mono font-bold tracking-widest flex items-center gap-2 transition-colors">
+          <Server className="w-3.5 h-3.5" />
+          Mayor
+        </button>
+      </div>
+
+      <div className="flex-1 min-h-0 flex">
+        {/* Left Stats Grid */}
+        <div className="w-[450px] shrink-0 border-r border-white/5 p-6 flex flex-col gap-6 overflow-y-auto custom-scrollbar bg-[#161719]">
+          
+          <div className="space-y-4">
+            <h3 className="text-[10px] font-mono text-muted uppercase tracking-[0.2em] flex items-center justify-between">
+              Alarm Loop
+            </h3>
+            <div className="flex items-center gap-8 text-xs font-mono">
+              <div className="flex items-center gap-3">
+                <span className="text-muted/60">Interval</span>
+                <span className="text-primary font-bold">active (5s)</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-muted/60">Next fire</span>
+                <span className="text-white">now</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <h3 className="text-[10px] font-mono text-muted uppercase tracking-[0.2em]">Agents (15)</h3>
+            <div className="grid grid-cols-2 gap-x-8 gap-y-3 text-xs font-mono">
+              <div className="flex justify-between items-center"><span className="text-muted/60">Working</span><span className="text-green-400 font-bold">1</span></div>
+              <div className="flex justify-between items-center"><span className="text-muted/60">Idle</span><span className="text-white">14</span></div>
+              <div className="flex justify-between items-center"><span className="text-muted/60">Stalled</span><span className="text-red-400">0</span></div>
+              <div className="flex justify-between items-center"><span className="text-muted/60">Dead</span><span className="text-red-500">0</span></div>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <h3 className="text-[10px] font-mono text-muted uppercase tracking-[0.2em]">Beads</h3>
+            <div className="grid grid-cols-2 gap-x-8 gap-y-3 text-xs font-mono">
+              <div className="flex justify-between items-center"><span className="text-muted/60">Open</span><span className="text-white">7</span></div>
+              <div className="flex justify-between items-center"><span className="text-muted/60">In Progress</span><span className="text-accent font-bold">1</span></div>
+              <div className="flex justify-between items-center"><span className="text-muted/60">In Review</span><span className="text-white">0</span></div>
+              <div className="flex justify-between items-center"><span className="text-muted/60">Failed</span><span className="text-error font-bold">18</span></div>
+              <div className="flex justify-between items-center"><span className="text-muted/60">Triage</span><span className="text-white">0</span></div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Event Log */}
+        <div className="flex-1 flex flex-col overflow-hidden relative bg-[#121315]">
+           <div className="h-10 shrink-0 border-b border-white/5 flex items-center justify-between px-6 bg-[#161719]/50">
+             <h3 className="text-[10px] font-mono text-muted uppercase tracking-[0.2em]">Recent Events</h3>
+             <div className="flex items-center gap-2">
+               <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span>
+               <span className="text-[10px] font-mono text-green-500 tracking-wider">Live</span>
+             </div>
+           </div>
+           
+           <div className="flex-1 overflow-y-auto custom-scrollbar p-4 flex flex-col gap-1.5">
+             {mockTerminalLogs.map(log => (
+               <div key={log.id} className="flex whitespace-nowrap items-center gap-4 px-3 py-2 rounded-md bg-transparent hover:bg-white/[0.03] transition-colors font-mono text-[11px] group cursor-default">
+                 <span className="text-muted/40 w-24 shrink-0 transition-colors group-hover:text-muted/80">{log.time}</span>
+                 <span className={`px-2 py-0.5 rounded border leading-none tracking-wide flex shrink-0 items-center justify-center ${log.badgeColor}`}>{log.badge}</span>
+                 <span className="text-muted shrink-0 text-white/70 truncate transition-colors group-hover:text-white" title={log.text}>{log.text}</span>
+               </div>
+             ))}
+           </div>
+           
+           <div className="absolute bottom-0 left-0 w-full h-8 bg-gradient-to-t from-[#121315] to-transparent pointer-events-none" />
+        </div>
+
+      </div>
+    </motion.div>
+  );
+};
+
 // --- Main Page ---
 
 export default function RepoVis() {
@@ -2452,7 +2739,7 @@ export default function RepoVis() {
         <div className="fixed inset-0 pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.05)_50%),linear-gradient(90deg,rgba(255,0,0,0.01),rgba(0,255,0,0.005),rgba(0,0,255,0.01))] bg-[length:100%_2px,2px_100%] z-[100] opacity-30" />
 
       {/* IDE Pane Container -> Now Full Screen Grid */}
-      <div className="w-full mx-auto min-h-screen relative flex flex-col px-4 2xl:px-8">
+      <div className="w-full mx-auto h-screen relative flex flex-col overflow-hidden">
         
         {/* Header */}
         <header className="sticky top-0 z-[60] bg-background-dark/80 backdrop-blur-3xl border-b border-white/5 px-6 py-6 flex items-center justify-between gap-4">
@@ -2604,6 +2891,8 @@ export default function RepoVis() {
             </div>
           </LayoutGroup>
         </main>
+
+        <TerminalPanel />
 
         {/* Deep Dive Overlay Background */}
         <AnimatePresence>
