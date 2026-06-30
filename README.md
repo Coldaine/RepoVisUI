@@ -54,7 +54,7 @@ app/
 ├── startup/              # Startup splash route
 ├── svg-showcase/         # SVG capability demo route
 ├── api/
-│   └── analyze/route.ts  # POST endpoint that runs lib/analysis
+│   └── analyze/route.ts  # GET endpoint that runs lib/analysis
 ├── layout.tsx
 └── globals.css
 
