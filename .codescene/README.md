@@ -16,10 +16,11 @@ checkout (checked with `git ls-files` and `ls -a`), so the harness of record is 
 applet builder. Every rule below keys off file paths and file content, and
 `tag_codeowners_for_critical_code` is `false` in all seven boolean gate maps (the eighth set, the
 catch-all, names the `pay_down_tech_debt` profile instead of a map), and no rule set uses a
-`matching_team` filter, so nothing here is keyed on a person or an ownership map. Every gate keys
-off file paths and measured code; two of them, `supervise_goals` and `refactoring_goals`, also read
-the goals configured on the CodeScene project, which is the one input this directory cannot
-describe on its own (see *PR quality gates*).
+`matching_team` filter, so nothing here is keyed on a person or an ownership map. Three of the six
+enabled keys carry state measured on the CodeScene project rather than in the diff —
+`hotspot_decline` reads hotspot history, `supervise_goals` and `refactoring_goals` read the
+configured goals — which is why identical diffs can receive different verdicts (see *PR quality
+gates*).
 
 The CLI is `cs` (CodeScene CLI 1.0.55). Everything in this file reproduces from the repository root:
 
@@ -230,8 +231,10 @@ rules file, so the two read as one decision:
 | 8 | `**/*` | the `pay_down_tech_debt` profile |
 
 The tests, the analysis primitives, the library, the hooks, the server boundary and the App Router
-pages are all gated: a wrong green test, a wrong drift rule or a twelfth exhibit bolted into
-`app/page.tsx` is exactly what a pull request should be stopped on. The consequence for
+pages are all gated: a test module that turns into a nested helper chain, a drift rule that grows
+another loop level, or a twelfth exhibit bolted into `app/page.tsx` is what these gates stop. They
+are not a test runner — CodeScene measures structure, so a test that asserts the wrong thing is
+caught by `npm run test`, not by this file, and the two are meant to be used together. The consequence for
 `app/page.tsx` is stated rather than engineered away — until the file is split, a pull request that
 adds another exhibit to it will be blocked by `critical_health_rules`, and the way through is to land
 the exhibit in its own module, not to toggle a gate. The catch-all names the `pay_down_tech_debt`
@@ -239,11 +242,13 @@ profile instead of a map, so a pull request touching build configuration, or a d
 measured rule set yet, may pay debt down instead of being blocked by a file that no goal targets.
 Promotion is explicit: a path gets its own gate set in the same change that gives it a rule set.
 
-Two of the enabled keys need naming because they are not decided by the diff alone: `supervise_goals`
-and `refactoring_goals` read the goals configured on CodeScene project 86838, so they enforce a decision
-made in the CodeScene UI. The other five -- `hotspot_decline`, `new_code_health`, `advisory_health_rules`,
-`critical_health_rules` and `tag_codeowners_for_critical_code` -- are decided by the code in the pull
-request and the rules in `code-health-rules.json`.
+Three of the enabled keys are not decided by the diff alone. `hotspot_decline` reads the file's
+hotspot history as measured on CodeScene project 86838, and `supervise_goals` and
+`refactoring_goals` read the refactoring goals configured on that project, so identical diffs can
+receive different verdicts. `new_code_health`, `advisory_health_rules` and `critical_health_rules`
+are decided by the diff and by `code-health-rules.json`, and `tag_codeowners_for_critical_code` is
+`false` everywhere. The gates are also not a test runner: they measure structure, so the suite's
+behaviour is guarded by `npm run test`.
 
 ## Verification
 
@@ -327,4 +332,5 @@ Mean 9.4756 before, 9.4756 after; 5 files below 10.0 before and after.
    build wrote.
 4. A `10.0` on a `score: null` path means "not scored", not "clean". Say so when quoting it.
 5. Re-run `npm run test` and `cs review` on the touched files after changing anything under
-   `lib/analysis/`, `lib/` or `app/api/`; the tests and the rules must both stay green.
+   `tests/`, `app/`, `hooks/` or `lib/`; the tests and the rules must both stay green. A change to a
+   test is exactly the case where the structure gate and the test run answer different questions.
