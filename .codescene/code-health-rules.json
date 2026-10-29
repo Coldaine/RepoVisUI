@@ -1,0 +1,560 @@
+{
+  "usage": "Code health rules for RepoVisUI (the RepoVis dashboard), applied by `cs review`, `cs check` and the CodeScene PR gates. This repository is 100 percent coding-agent authored: package.json:2 names the project `ai-studio-applet`, metadata.json is the Google AI Studio applet manifest (`requestFramePermissions`), and the development record is written in agent-turn form - docs/journal.md holds 37 turns in the UNDERSTANDING / PLAN / ACCOMPLISHED / REMAINING / COVERAGE shape, records a `compile_applet` run at docs/journal.md:657, and docs/HISTORY.md:24 has the agent explaining which of its own \"baseline system instructions\" it overrode. No .claude/, .codex/, .cursor/, .agents/, .opencode/, .pi/, .entire/, .kilo/ or .factory/ directory exists in the checkout (verified with `git ls-files` and `ls -a`), so the harness of record here is the AI Studio applet builder. Every rule set therefore keys off file paths and file content only, and the failure modes they catch are the ones the journal shows: a page that gains one more exhibit per turn (app/page.tsx, 2177 cs-measured code lines, `MiniVis` at 486), a rule module that hides its rule inside five levels of nesting (lib/analysis/drift.ts), and a test suite written once and then copied. Evaluation is first-match-wins from top to bottom, so rule sets are ordered narrowest glob first - the generated Next.js type stub, the test suite, the analysis primitives, the library layer, the hook layer, the server boundary and the App Router pages - with the broad `**/*` catch-all last so a new directory starts under all 23 rules. No structural smell is muted in application code or in test code: the only rule set that zeroes anything wholesale is the generated `next-env.d.ts`, and the test profile keeps all seven structural smells at 1.0 while zeroing exactly the three OOP-shape false positives. A weight of 0.0 disables a rule; a weight of 1.0 keeps it at full impact.",
+  "rule_sets": [
+    {
+      "matching_content_path": "next-env.d.ts",
+      "matching_content_path_doc": "Exactly one tracked file matches: next-env.d.ts (6 lines at 43f531a). It is Next.js's own type-reference stub - next-env.d.ts:5 reads `// NOTE: This file should not be edited` - and `next dev` / `next build` rewrite it with the reference list for the installed Next version; tsconfig.json lists it in \"include\". `cs review` already returns {\"score\":null,\"review\":[]} for it, so this rule set does not change a number today. It exists so the exclusion is stated in the configuration rather than assumed: the stub is generated, not authored, and a future Next release that makes it measurable must not turn it into a refactoring target.",
+      "rules": [
+        {
+          "name": "Brain Method",
+          "weight": 0.0
+        },
+        {
+          "name": "Bumpy Road Ahead",
+          "weight": 0.0
+        },
+        {
+          "name": "Code Duplication",
+          "weight": 0.0
+        },
+        {
+          "name": "Complex Conditional",
+          "weight": 0.0
+        },
+        {
+          "name": "Complex Method",
+          "weight": 0.0
+        },
+        {
+          "name": "Constructor Over-Injection",
+          "weight": 0.0
+        },
+        {
+          "name": "Deep, Global Nested Complexity",
+          "weight": 0.0
+        },
+        {
+          "name": "Deep, Nested Complexity",
+          "weight": 0.0
+        },
+        {
+          "name": "Duplicated Assertion Blocks",
+          "weight": 0.0
+        },
+        {
+          "name": "Excess Number of Function Arguments",
+          "weight": 0.0
+        },
+        {
+          "name": "Global Conditionals",
+          "weight": 0.0
+        },
+        {
+          "name": "Large Assertion Blocks",
+          "weight": 0.0
+        },
+        {
+          "name": "Large Embedded Code Block",
+          "weight": 0.0
+        },
+        {
+          "name": "Large Method",
+          "weight": 0.0
+        },
+        {
+          "name": "Lines of Code in a Single File",
+          "weight": 0.0
+        },
+        {
+          "name": "Lines of Declarations in a Single File",
+          "weight": 0.0
+        },
+        {
+          "name": "Low Cohesion",
+          "weight": 0.0
+        },
+        {
+          "name": "Missing Arguments Abstractions",
+          "weight": 0.0
+        },
+        {
+          "name": "Number of Functions in a Single Module",
+          "weight": 0.0
+        },
+        {
+          "name": "Overall Code Complexity",
+          "weight": 0.0
+        },
+        {
+          "name": "Overall Function Size",
+          "weight": 0.0
+        },
+        {
+          "name": "Primitive Obsession",
+          "weight": 0.0
+        },
+        {
+          "name": "String Heavy Function Arguments",
+          "weight": 0.0
+        }
+      ],
+      "rules_doc": "All 23 rules at 0.0. Editing this file to satisfy a health rule would be discarded by the next `next build`, and its content is a version-dependent type reference list, so there is no code here for this repository to own. A 10.0 score on this path would mean \"not scored\", not \"healthy\", and the rule set says so before anyone reads a number."
+    },
+    {
+      "matching_content_path": "tests/**",
+      "matching_content_path_doc": "The whole Vitest suite: tests/Dashboard.test.tsx (38 lines), tests/drift.test.ts (48), tests/gravity.test.ts (59), tests/utils.test.ts (20) and tests/setup.ts (17 - the jest-dom and matchMedia harness that vitest.config.ts:10 loads through `setupFiles`). Run by `npm run test` (`vitest run`, package.json:13) under `environment: jsdom` (vitest.config.ts:8). The set sits above every source glob so that a test file is never scored with production-code rules.",
+      "rules": [
+        {
+          "name": "Brain Method",
+          "weight": 1.0
+        },
+        {
+          "name": "Bumpy Road Ahead",
+          "weight": 1.0
+        },
+        {
+          "name": "Code Duplication",
+          "weight": 1.0
+        },
+        {
+          "name": "Complex Conditional",
+          "weight": 1.0
+        },
+        {
+          "name": "Complex Method",
+          "weight": 1.0
+        },
+        {
+          "name": "Constructor Over-Injection",
+          "weight": 1.0
+        },
+        {
+          "name": "Deep, Global Nested Complexity",
+          "weight": 1.0
+        },
+        {
+          "name": "Deep, Nested Complexity",
+          "weight": 1.0
+        },
+        {
+          "name": "Duplicated Assertion Blocks",
+          "weight": 1.0
+        },
+        {
+          "name": "Excess Number of Function Arguments",
+          "weight": 1.0
+        },
+        {
+          "name": "Global Conditionals",
+          "weight": 1.0
+        },
+        {
+          "name": "Large Assertion Blocks",
+          "weight": 1.0
+        },
+        {
+          "name": "Large Embedded Code Block",
+          "weight": 1.0
+        },
+        {
+          "name": "Large Method",
+          "weight": 1.0
+        },
+        {
+          "name": "Lines of Code in a Single File",
+          "weight": 1.0
+        },
+        {
+          "name": "Lines of Declarations in a Single File",
+          "weight": 1.0
+        },
+        {
+          "name": "Low Cohesion",
+          "weight": 0.0
+        },
+        {
+          "name": "Missing Arguments Abstractions",
+          "weight": 1.0
+        },
+        {
+          "name": "Number of Functions in a Single Module",
+          "weight": 1.0
+        },
+        {
+          "name": "Overall Code Complexity",
+          "weight": 1.0
+        },
+        {
+          "name": "Overall Function Size",
+          "weight": 1.0
+        },
+        {
+          "name": "Primitive Obsession",
+          "weight": 0.0
+        },
+        {
+          "name": "String Heavy Function Arguments",
+          "weight": 0.0
+        }
+      ],
+      "rules_doc": "The seven structural smells stay at 1.0 - Bumpy Road Ahead, Deep, Nested Complexity, Complex Method, Code Duplication, Large Assertion Blocks, Duplicated Assertion Blocks and Lines of Code in a Single File - so a test that turns into a nested helper chain, a fourth copy of an assertion block or a copy-pasted suite still fails review. Exactly three rules are 0.0 and only these three: Low Cohesion is a class-field distribution metric and this suite is flat `describe`/`it` blocks with no classes, so it has no subject; Primitive Obsession and String Heavy Function Arguments measure typed-model discipline, and `cn('px-2 py-2', 'p-4')` (tests/utils.test.ts:14) or a mocked `motion.div` that takes spread props (tests/Dashboard.test.tsx:16) are the correct test doubles. Measured effect today: none - all four test modules return 10.0 with and without the profile - so this is armed policy, not a score lever."
+    },
+    {
+      "matching_content_path": "lib/analysis/**",
+      "matching_content_path_doc": "The two pure analysis primitives: lib/analysis/drift.ts (113 physical lines, 58 cs-measured code lines - exports `detectArchitecturalDrift` and `generateDriftExhibit`) and lib/analysis/gravity.ts (91 physical, 54 code - exports `calculateFileGravity` and `generateFocusExhibit`). Data in, data out: no I/O, no React, and the only two modules with direct unit tests (tests/drift.test.ts:2, tests/gravity.test.ts:2). drift.ts:44-49 is the repository's only use of the `typescript` compiler API (`ts.createSourceFile`). Both are called from app/api/analyze/route.ts:35 and :65.",
+      "rules": [
+        {
+          "name": "Bumpy Road Ahead",
+          "weight": 1.0
+        },
+        {
+          "name": "Complex Method",
+          "weight": 1.0
+        },
+        {
+          "name": "Complex Conditional",
+          "weight": 1.0
+        },
+        {
+          "name": "Deep, Nested Complexity",
+          "weight": 1.0
+        },
+        {
+          "name": "Code Duplication",
+          "weight": 1.0
+        },
+        {
+          "name": "Large Method",
+          "weight": 1.0
+        },
+        {
+          "name": "Lines of Code in a Single File",
+          "weight": 1.0
+        },
+        {
+          "name": "Overall Code Complexity",
+          "weight": 1.0
+        },
+        {
+          "name": "Excess Number of Function Arguments",
+          "weight": 1.0
+        }
+      ],
+      "rules_doc": "Nine structural rules at 1.0, nothing muted. Both files report real findings today - `detectArchitecturalDrift` (drift.ts:40-87) is cc 9 with 2 bumps at nesting depth 5, `calculateFileGravity` (gravity.ts:26-66) is cc 9 at depth 5 - and both stay scored, because the fix belongs in the visitor, not in a weight: drift.ts:43-84 opens a file loop, defines an AST visitor closure (:54-67) and then re-enters a rule loop (:69-84) before a violation can be pushed - three loop levels and two pattern guards for one check. The failure mode this family produces is a third analysis pasted into the existing rule engine, which is exactly what the next rule set's cap is for.",
+      "thresholds": [
+        {
+          "name": "file_lines_of_code_for_warning",
+          "value": 150
+        }
+      ],
+      "thresholds_doc": "One tightening: the module cap moves from the measured TypeScript default of 1000 cs-measured code lines to 150. The default was measured in this checkout rather than assumed - a synthetic .tsx module of 1000 code lines returns no `Lines of Code in a Single File`, 1100 returns the finding - so 150 is a tightening in the same unit `cs` reports. drift.ts is 58 code lines and gravity.ts is 54, so 150 leaves room for one more rule family in the existing module and none for a second subject. Not currently triggered: deliberately armed, because the default cap would never see a rule engine that grew to 300 lines."
+    },
+    {
+      "matching_content_path": "lib/**",
+      "matching_content_path_doc": "The shared library layer, minus the analysis primitives claimed above: lib/audio.ts (242 physical / 164 cs-measured code lines, the `SoundSynth` class driving procedural Web Audio), lib/exhibits.ts (522 physical lines of `MOCK_EXHIBITS` data, which `cs review` returns {\"score\":null,\"review\":[]} for because the module declares no functions), lib/logger.ts (24 physical / 15 code) and lib/utils.ts (6 physical / 3 code, the `cn()` class-merge helper used by every page). Imported by app/page.tsx and, for `cn`, by tests/utils.test.ts:2.",
+      "rules": [
+        {
+          "name": "Bumpy Road Ahead",
+          "weight": 1.0
+        },
+        {
+          "name": "Complex Method",
+          "weight": 1.0
+        },
+        {
+          "name": "Complex Conditional",
+          "weight": 1.0
+        },
+        {
+          "name": "Deep, Nested Complexity",
+          "weight": 1.0
+        },
+        {
+          "name": "Code Duplication",
+          "weight": 1.0
+        },
+        {
+          "name": "Large Method",
+          "weight": 1.0
+        },
+        {
+          "name": "Lines of Code in a Single File",
+          "weight": 1.0
+        },
+        {
+          "name": "Overall Code Complexity",
+          "weight": 1.0
+        },
+        {
+          "name": "Excess Number of Function Arguments",
+          "weight": 1.0
+        }
+      ],
+      "rules_doc": "Nine structural rules at 1.0, nothing muted. lib/audio.ts is the second-worst scorable file in the repository at 8.54 and every finding is genuine: `SoundSynth.stopAmbient` (audio.ts:220-238) is cc 10, and `startAmbient` (:157) and `updateAmbient` (:202) report complex conditionals. That is the shape an agent leaves behind after adding one more oscillator voice to an existing synth graph, so the findings stay scored. lib/exhibits.ts cannot be scored at all - that is recorded as `score: null` in the evidence, not counted as a pass.",
+      "thresholds": [
+        {
+          "name": "file_lines_of_code_for_warning",
+          "value": 250
+        }
+      ],
+      "thresholds_doc": "Second rung of the module ladder: 250 cs-measured code lines, tightened from the measured 1000-line TypeScript default. lib/audio.ts is the largest scorable module at 164 code lines, so a library module may roughly double once and then has to be split. lib/exhibits.ts is 522 physical lines but a data literal with no functions, which is why the cap is stated in code lines: the answer to a 522-line mock-data array is a smaller fixture set, not a threshold that formats it."
+    },
+    {
+      "matching_content_path": "hooks/**",
+      "matching_content_path_doc": "The React hook layer: hooks/use-mobile.ts (19 physical / 13 cs-measured code lines), the `useIsMobile()` matchMedia subscription that responsive layouts consult. It is the only hook in the repository and the only file whose correctness depends on React's rules of hooks, which is why it gets its own profile instead of falling through to the generic catch-all.",
+      "rules": [
+        {
+          "name": "Bumpy Road Ahead",
+          "weight": 1.0
+        },
+        {
+          "name": "Complex Method",
+          "weight": 1.0
+        },
+        {
+          "name": "Complex Conditional",
+          "weight": 1.0
+        },
+        {
+          "name": "Deep, Nested Complexity",
+          "weight": 1.0
+        },
+        {
+          "name": "Code Duplication",
+          "weight": 1.0
+        },
+        {
+          "name": "Large Method",
+          "weight": 1.0
+        },
+        {
+          "name": "Lines of Code in a Single File",
+          "weight": 1.0
+        },
+        {
+          "name": "Overall Code Complexity",
+          "weight": 1.0
+        },
+        {
+          "name": "Excess Number of Function Arguments",
+          "weight": 1.0
+        }
+      ],
+      "rules_doc": "Nine structural rules at 1.0 and nothing muted. A hook is the smallest unit in this codebase and the easiest place to hide state: `useIsMobile` is 13 code lines returning a boolean, so anything that grows past the function cap below is a state machine wearing a hook's name. Bumpy Road Ahead, Complex Method and Deep, Nested Complexity stay at 1.0 because conditional hook bodies are a bug factory under concurrent rendering.",
+      "thresholds": [
+        {
+          "name": "function_lines_of_code_warning",
+          "value": 50
+        },
+        {
+          "name": "function_max_arguments",
+          "value": 3
+        }
+      ],
+      "thresholds_doc": "`function_lines_of_code_warning` 120 -> 50, where 120 is the measured TypeScript function default (a synthetic function of 118 code lines is clean, 121 reports `Large Method`), and `function_max_arguments` set to 3. `useIsMobile()` takes zero arguments and is 13 code lines, so neither override fires today; they are armed so the next hook cannot arrive as a 200-line stateful blob with four positional arguments. A hook that needs four inputs needs one options object."
+    },
+    {
+      "matching_content_path": "app/api/**",
+      "matching_content_path_doc": "The server boundary: app/api/analyze/route.ts (77 physical / 56 cs-measured code lines), the single `GET` handler that walks lib/ with `fs.readdirSync` (route.ts:14-25), feeds the result to `detectArchitecturalDrift` (:35) and returns the drift and focus exhibits (:68-71). It is the only server-side code in the repository and the only place where a response is built from the filesystem.",
+      "rules": [
+        {
+          "name": "Bumpy Road Ahead",
+          "weight": 1.0
+        },
+        {
+          "name": "Complex Method",
+          "weight": 1.0
+        },
+        {
+          "name": "Complex Conditional",
+          "weight": 1.0
+        },
+        {
+          "name": "Deep, Nested Complexity",
+          "weight": 1.0
+        },
+        {
+          "name": "Code Duplication",
+          "weight": 1.0
+        },
+        {
+          "name": "Large Method",
+          "weight": 1.0
+        },
+        {
+          "name": "Lines of Code in a Single File",
+          "weight": 1.0
+        },
+        {
+          "name": "Overall Code Complexity",
+          "weight": 1.0
+        },
+        {
+          "name": "Excess Number of Function Arguments",
+          "weight": 1.0
+        }
+      ],
+      "rules_doc": "Nine structural rules at 1.0 and nothing muted: `GET` (route.ts:7-77) is already cc 9 and the file scores 9.68, so the handler stays measurable. It currently holds a recursive directory walk, two analyses and a response shape inside one try/catch; the weight is what keeps that count visible instead of letting it become the file's permanent shape.",
+      "thresholds": [
+        {
+          "name": "function_lines_of_code_warning",
+          "value": 60
+        },
+        {
+          "name": "file_lines_of_code_for_warning",
+          "value": 200
+        }
+      ],
+      "thresholds_doc": "`function_lines_of_code_warning` 120 -> 60: `GET` is 56 code lines today, four lines under the cap, so the next analysis added here has to move into lib/analysis/ instead of becoming a fifth block in the handler. `file_lines_of_code_for_warning` 1000 -> 200 keeps a route a route; the file is 56 code lines and there is nowhere legitimate for it to grow."
+    },
+    {
+      "matching_content_path": "app/**",
+      "matching_content_path_doc": "The App Router surface: app/page.tsx (2915 physical / 2177 cs-measured code lines - `RepoVis`, `MiniVis`, `ExhibitTile`, `ContextSubCard`, `AudioDebugPanel`, `TerminalPanel` and eleven `*Deep` exhibit components), app/hero/page.tsx (531 / 448; six `Variant*` components plus `ComputeHeroPage`), app/startup/page.tsx (431 / 263), app/svg-showcase/page.tsx (328 / 266), app/layout.tsx (35 / 23) and app/hero/actions.ts (33 / 24, the `estimateComputePower` server action). Every page is a single default-exported component tree and there is no shared component library, which is why the module cap carries more weight here than anywhere else.",
+      "rules": [
+        {
+          "name": "Bumpy Road Ahead",
+          "weight": 1.0
+        },
+        {
+          "name": "Complex Method",
+          "weight": 1.0
+        },
+        {
+          "name": "Complex Conditional",
+          "weight": 1.0
+        },
+        {
+          "name": "Deep, Nested Complexity",
+          "weight": 1.0
+        },
+        {
+          "name": "Code Duplication",
+          "weight": 1.0
+        },
+        {
+          "name": "Large Method",
+          "weight": 1.0
+        },
+        {
+          "name": "Lines of Code in a Single File",
+          "weight": 1.0
+        },
+        {
+          "name": "Overall Code Complexity",
+          "weight": 1.0
+        },
+        {
+          "name": "Excess Number of Function Arguments",
+          "weight": 1.0
+        }
+      ],
+      "rules_doc": "Nine structural rules at 1.0 with no exclusions. app/page.tsx is the worst file in the repository at 4.30 and its findings are real, not framework noise: `MiniVis` (page.tsx:1684-2225) is 486 code lines with 3 bumps and cc 82, `ExhibitTile` (:2227-2446) is cc 31, `RepoVis` (:2669-2915) is cc 23 and `ChurnDeep:826` reports a complex conditional. Muting any of them would hide the accretion the journal records - docs/journal.md:7-36 is one turn that rewrote MiniVis and added bespoke animations for the remaining exhibit types.",
+      "thresholds": [
+        {
+          "name": "file_lines_of_code_for_warning",
+          "value": 600
+        }
+      ],
+      "thresholds_doc": "The module cap moves from the measured 1000-line TypeScript default to 600: 40 percent tighter than the framework, and still 152 code lines above the largest route module other than page.tsx (app/hero/page.tsx at 448). app/page.tsx is 3.6 times over the cap and already reports `Lines of Code in a Single File`, so the number changes no score today; it is the line that stops a second page from growing the same way."
+    },
+    {
+      "matching_content_path": "**/*",
+      "matching_content_path_doc": "Catch-all, deliberately last: the root build configuration that `cs` can see (next.config.ts 36 lines, vitest.config.ts 17, eslint.config.mjs 11, postcss.config.mjs 9 - the two `.mjs` files return {\"score\":null}), plus any directory a future change introduces. A new path starts under all 23 rules at 1.0 with the language defaults and has to earn a rule set of its own, with a measurement, before it gets anything else.",
+      "rules": [
+        {
+          "name": "Brain Method",
+          "weight": 1.0
+        },
+        {
+          "name": "Bumpy Road Ahead",
+          "weight": 1.0
+        },
+        {
+          "name": "Code Duplication",
+          "weight": 1.0
+        },
+        {
+          "name": "Complex Conditional",
+          "weight": 1.0
+        },
+        {
+          "name": "Complex Method",
+          "weight": 1.0
+        },
+        {
+          "name": "Constructor Over-Injection",
+          "weight": 1.0
+        },
+        {
+          "name": "Deep, Global Nested Complexity",
+          "weight": 1.0
+        },
+        {
+          "name": "Deep, Nested Complexity",
+          "weight": 1.0
+        },
+        {
+          "name": "Duplicated Assertion Blocks",
+          "weight": 1.0
+        },
+        {
+          "name": "Excess Number of Function Arguments",
+          "weight": 1.0
+        },
+        {
+          "name": "Global Conditionals",
+          "weight": 1.0
+        },
+        {
+          "name": "Large Assertion Blocks",
+          "weight": 1.0
+        },
+        {
+          "name": "Large Embedded Code Block",
+          "weight": 1.0
+        },
+        {
+          "name": "Large Method",
+          "weight": 1.0
+        },
+        {
+          "name": "Lines of Code in a Single File",
+          "weight": 1.0
+        },
+        {
+          "name": "Lines of Declarations in a Single File",
+          "weight": 1.0
+        },
+        {
+          "name": "Low Cohesion",
+          "weight": 1.0
+        },
+        {
+          "name": "Missing Arguments Abstractions",
+          "weight": 1.0
+        },
+        {
+          "name": "Number of Functions in a Single Module",
+          "weight": 1.0
+        },
+        {
+          "name": "Overall Code Complexity",
+          "weight": 1.0
+        },
+        {
+          "name": "Overall Function Size",
+          "weight": 1.0
+        },
+        {
+          "name": "Primitive Obsession",
+          "weight": 1.0
+        },
+        {
+          "name": "String Heavy Function Arguments",
+          "weight": 1.0
+        }
+      ],
+      "rules_doc": "All 23 rules at 1.0. The repository is small - 44 tracked files, 24 that `cs` supports - and every one of them is first-party, so there is nothing left to exempt. The catch-all exists so that a new top-level directory cannot inherit a relaxed profile by accident: it starts strict and is promoted with evidence, not demoted by omission."
+    }
+  ]
+}
