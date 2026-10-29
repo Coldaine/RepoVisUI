@@ -1,0 +1,336 @@
+# CodeScene configuration for RepoVisUI
+
+This directory holds the repository's code-health rules and PR quality gates. Both files are
+first-match-wins: `cs` walks `rule_sets` from the top, stops at the first `matching_content_path`
+that matches the file, and never looks further. The ordering in the two files is therefore part
+of the design, not a formatting choice.
+
+The configuration exists because every file in this repository was written by a coding agent.
+`package.json:2` names the project `ai-studio-applet`, `metadata.json` is the Google AI Studio
+applet manifest (`requestFramePermissions`), `docs/journal.md` is 783 lines of development turns
+in the agent's `UNDERSTANDING / PLAN / ACCOMPLISHED / REMAINING / COVERAGE` shape with a
+`compile_applet` run recorded at `docs/journal.md:657`, and `docs/HISTORY.md:24` has the agent
+naming the "baseline system instructions" it overrode. There is no `.claude/`, `.codex/`,
+`.cursor/`, `.agents/`, `.opencode/`, `.pi/`, `.entire/`, `.kilo/` or `.factory/` directory in the
+checkout (checked with `git ls-files` and `ls -a`), so the harness of record is the AI Studio
+applet builder. Every rule below keys off file paths and file content, and
+`tag_codeowners_for_critical_code` is `false` in all seven boolean gate maps (the eighth set, the
+catch-all, names the `pay_down_tech_debt` profile instead of a map), and no rule set uses a
+`matching_team` filter, so nothing here is keyed on a person or an ownership map. Three of the six
+enabled keys carry state measured on the CodeScene project rather than in the diff —
+`hotspot_decline` reads hotspot history, `supervise_goals` and `refactoring_goals` read the
+configured goals — which is why identical diffs can receive different verdicts (see *PR quality
+gates*).
+
+The CLI is `cs` (CodeScene CLI 1.0.55). Everything in this file reproduces from the repository root:
+
+```bash
+export CS_ACCESS_TOKEN=$(cat ~/.codescene/token)
+cs rules-config validate --config-path .codescene/code-health-rules.json --format json
+cs rules-config validate --config-path .codescene/custom-quality-gates.json --format json
+cs check-rules app/page.tsx
+cs review --file-list <paths> --output-format json
+```
+
+## What the repository actually is
+
+`RepoVisUI` is a single-page Next.js 15 / React 19 dashboard prototype: a grid of animated
+"exhibits" (file gravity, architectural drift, churn, dependency network, …) that expand in place,
+plus one server route that runs the two analysis primitives over the local `lib/` directory. There
+is no state library, no database and no component library — every visual lives in the page module
+that renders it.
+
+| Path | Files | What it is | Who consumes it |
+| --- | --- | --- | --- |
+| `app/` | 8 | App Router surface: `page.tsx` (2915 physical lines: dashboard, eleven `*Deep` exhibits, `MiniVis`, `ExhibitTile`, `TerminalPanel`, `RepoVis`), `hero/page.tsx` (531), `startup/page.tsx` (431), `svg-showcase/page.tsx` (328), `layout.tsx` (35), `hero/actions.ts` (33, `estimateComputePower` server action), `api/analyze/route.ts` (77, the only API route), `globals.css` | `next dev` / `next build`, the browser |
+| `lib/analysis/` | 2 | Pure analysis primitives: `drift.ts` (113 lines, TypeScript compiler API) and `gravity.ts` (91 lines, co-edit arithmetic) | `app/api/analyze/route.ts`, `tests/drift.test.ts`, `tests/gravity.test.ts` |
+| `lib/` | 4 | Shared library: `audio.ts` (242, `SoundSynth` over Web Audio), `exhibits.ts` (522, `MOCK_EXHIBITS` data), `logger.ts` (24), `utils.ts` (6, `cn()`) | `app/page.tsx`, `tests/utils.test.ts` |
+| `hooks/` | 1 | `use-mobile.ts` (19 lines), the matchMedia subscription behind `useIsMobile()` | responsive layouts |
+| `tests/` | 5 | Vitest suite: `Dashboard.test.tsx` (38), `drift.test.ts` (48), `gravity.test.ts` (59), `utils.test.ts` (20) and `setup.ts` (17, the jest-dom + matchMedia harness) | `npm run test` → `vitest run` |
+| `docs/` | 10 | Narrative only, no code: `journal.md` (783), `PROGRESSIVE_DISCLOSURE.md` (62), `ROADMAP.md` (61), `ARCHITECTURE.md` (61), `visualization-audit.md` (43), `HISTORY.md` (41), `AI_AUDIO_PROMPTS.md` (40), `DECISIONS.md` (33), `decisions.md` (29), `VISION.md` (22) | humans and agents reading the design record |
+| root | 14 | `package.json`, `package-lock.json` (17429 lines), `tsconfig.json`, `next.config.ts`, `next-env.d.ts` (**generated**), `eslint.config.mjs`, `.eslintrc.json`, `postcss.config.mjs`, `vitest.config.ts`, `renovate.json`, `metadata.json`, `.env.example`, `.gitignore`, `README.md` | toolchain |
+
+Of the 44 tracked files, `cs` supports 24 (16 `.ts`, 6 `.tsx`, 2 `.mjs`). 18 of those return a
+score; 6 return `{"score":null,"review":[]}` — `eslint.config.mjs`, `postcss.config.mjs`,
+`vitest.config.ts`, `next-env.d.ts`, `tests/setup.ts` and `lib/exhibits.ts`. A `null` is recorded
+as out of scope everywhere in this directory; it is never reported as a pass.
+
+## Rule set order (first match wins, narrowest glob first)
+
+| # | `matching_content_path` | Treatment | Why this position |
+| --- | --- | --- | --- |
+| 1 | `next-env.d.ts` | all 23 rules `0.0` | generated by Next.js, regenerated on every build |
+| 2 | `tests/**` | test profile: 20 rules `1.0`, 3 rules `0.0` | narrower than every source glob, so tests are never scored as production code |
+| 3 | `lib/analysis/**` | 9 structural rules `1.0`, module cap 150 | narrower than `lib/**` |
+| 4 | `lib/**` | 9 structural rules `1.0`, module cap 250 | narrower than `**/*`, broader than the analysis primitives |
+| 5 | `hooks/**` | 9 structural rules `1.0`, function cap 50, 3 arguments | the React hook layer, before the App Router surface |
+| 6 | `app/api/**` | 9 structural rules `1.0`, function cap 60, module cap 200 | narrower than `app/**` |
+| 7 | `app/**` | 9 structural rules `1.0`, module cap 600 | the pages, before the catch-all |
+| 8 | `**/*` | all 23 rules `1.0`, framework thresholds | catch-all; a new directory starts strict |
+
+`cs check-rules` proves the resolution file by file (real output in the Verification section):
+`next-env.d.ts` → `next-env.d.ts`, `tests/gravity.test.ts` → `tests/**`,
+`lib/analysis/drift.ts` → `lib/analysis/**`, `lib/audio.ts` → `lib/**`,
+`hooks/use-mobile.ts` → `hooks/**`, `app/api/analyze/route.ts` → `app/api/**`,
+`app/page.tsx` → `app/**`, `next.config.ts` → `**/*`.
+
+## Per-rule-set rationale
+
+### 1. Generated Next.js type stub (`next-env.d.ts`)
+
+`next-env.d.ts:5` says `// NOTE: This file should not be edited`. `next dev` and `next build`
+rewrite it with the type-reference list for the installed Next version, and `tsconfig.json` lists
+it in `"include"`. All 23 rules are `0.0`: the file has no author here, a hand edit would be
+discarded by the next build, and `cs review` already returns `{"score":null,"review":[]}` for it.
+The rule set makes the exclusion a stated decision instead of an unexamined default, so a future
+Next release cannot turn regenerated output into a refactoring target.
+
+### 2. Tests (`tests/**`)
+
+Tests are first-class citizens, not a lower tier. The seven structural smells stay at `1.0` —
+`Bumpy Road Ahead`, `Deep, Nested Complexity`, `Complex Method`, `Code Duplication`,
+`Large Assertion Blocks`, `Duplicated Assertion Blocks` and `Lines of Code in a Single File` — so a
+test that becomes a nested helper chain, a fourth copy of an assertion block or a copy-pasted suite
+still fails review. Exactly three rules are `0.0`, and only these three:
+
+| Rule | Weight | Why |
+| --- | --- | --- |
+| `Low Cohesion` | `0.0` | a class-field distribution metric; this suite is flat `describe`/`it` blocks with no classes, so the metric has no subject |
+| `Primitive Obsession` | `0.0` | a typed-model metric; `cn('px-2 py-2', 'p-4')` (`tests/utils.test.ts:14`) is the correct input for the helper under test |
+| `String Heavy Function Arguments` | `0.0` | a signature metric; a mocked `motion.div` that takes spread props (`tests/Dashboard.test.tsx:16`) is the correct test double, not a design smell |
+
+Measured effect today: none. All four test modules return `10.0` with and without the profile, so
+the profile is armed policy rather than a score lever. The assertion-block defaults (4 consecutive
+asserts, 4 large blocks per suite) are kept: the largest test module is `tests/gravity.test.ts` at
+39 cs-measured code lines and 27 in its largest test body, so a custom number would be a number to
+defend with nothing to show for it.
+
+### 3. Analysis primitives (`lib/analysis/**`)
+
+`drift.ts` (58 cs-measured code lines) and `gravity.ts` (54) take plain data in and return plain
+data out. They are the only modules with direct unit tests (`tests/drift.test.ts:2`,
+`tests/gravity.test.ts:2`) and `drift.ts:44-49` is the repository's only use of the TypeScript
+compiler API (`ts.createSourceFile`). Nine structural rules stay at `1.0` because both files report genuine findings:
+`detectArchitecturalDrift` (`drift.ts:40-87`) is cc 9 with 2 bumps at nesting depth 5, and
+`calculateFileGravity` (`gravity.ts:26-66`) is cc 9 at depth 5. The fix belongs in the visitor —
+`drift.ts:43-84` opens a file loop, defines an AST visitor closure (`:54-67`) and then re-enters a
+rule loop (`:69-84`) before a violation can be pushed — not in a weight.
+
+The module cap is tightened to **150** cs-measured code lines. The framework default was measured
+in this checkout rather than assumed (see the calibration ledger): 1000 code lines per module and
+120 per function. 150 leaves room for one more rule family in the existing file and none for a
+second subject. It does not fire today; it is armed because the default cap would never see a rule
+engine that grew to 300 lines.
+
+### 4. Shared library (`lib/**`)
+
+`lib/audio.ts` is the second-worst scorable file in the repository at 8.54 and every finding is
+real: `SoundSynth.stopAmbient` (`audio.ts:220-238`) is cc 10, and `startAmbient` (`:157`) and
+`updateAmbient` (`:202`) report complex conditionals. That is the shape an agent leaves behind after
+adding one more oscillator voice to an existing synth graph, so nothing is muted. `lib/exhibits.ts`
+is a 522-line declaration-only data module and `cs` cannot score it — recorded as `score: null`.
+The module cap is **250** cs-measured code lines: `lib/audio.ts` is the largest scorable module at
+164, so a library module may roughly double once and then has to be split. The answer to a 522-line
+mock-data array is a smaller fixture set, not a threshold that reformats it.
+
+### 5. React hooks (`hooks/**`)
+
+`hooks/use-mobile.ts` is 19 physical / 13 cs-measured lines and returns a boolean today. A hook is
+the smallest unit in this codebase and the easiest place to hide state, so
+`function_lines_of_code_warning` is **50** (default 120) and `function_max_arguments` is **3**.
+`useIsMobile()` takes zero arguments, so neither fires yet; they are armed so the next hook cannot
+arrive as a 200-line stateful blob with four positional arguments. A hook that needs four inputs
+needs one options object. All nine structural rules stay at `1.0`: a nested conditional in a hook
+body is a concurrent-rendering bug, not style advice.
+
+### 6. Server boundary (`app/api/**`)
+
+`app/api/analyze/route.ts` (56 cs-measured code lines) is the only server-side code in the
+repository. Its `GET` handler (`route.ts:7-77`) walks `lib/` with `fs.readdirSync` (`:14-25`), calls
+`detectArchitecturalDrift` (`:35`) and returns the drift and focus exhibits (`:68-71`). It is
+already cc 9 and scores 9.68, so it stays measurable. Two caps keep it a route:
+`function_lines_of_code_warning` **60** (the handler is 56 — four lines of headroom, so the next
+analysis added here has to become a module in `lib/analysis/` instead of a fifth block in the
+handler) and `file_lines_of_code_for_warning` **200**.
+
+### 7. App Router pages (`app/**`)
+
+`app/page.tsx` is the worst file in the repository at **4.30** and its findings are real, not
+framework noise:
+
+| Finding | Where | Measured |
+| --- | --- | --- |
+| `Lines of Code in a Single File` | `app/page.tsx` | 2177 cs-measured code lines |
+| `Bumpy Road Ahead` | `MiniVis` (`page.tsx:1684-2225`) | 3 bumps |
+| `Complex Method` | `MiniVis`, `ExhibitTile` (`:2227-2446`), `RepoVis` (`:2669-2915`), `NetworkStableDeep` (`:1529-1566`), `ConventionDeep` (`:1143-1258`), `SnapshotDeep` (`:943-1112`) | cc 82, 31, 23, 17, 15, 12 |
+| `Large Method` | `MiniVis`, `RepoVis`, `ExhibitTile`, `SnapshotDeep` | 486, 224, 203, 142 code lines |
+| `Complex Conditional` | `ChurnDeep:826` | 2 complex conditional expressions |
+| `Overall Code Complexity` | `app/page.tsx` | file mean above the framework limit |
+
+Muting any of these would hide the accretion the development journal records — `docs/journal.md:7-36`
+is the single turn that rewrote `MiniVis` and added bespoke animations for the remaining exhibit
+types, and `docs/journal.md:438` records five `Variant*` hero pages requested as
+"5 different iterations". The module cap is tightened to **600**
+cs-measured code lines: 40 percent tighter than the framework default, and still 152 lines above the
+largest route module other than `page.tsx` (`app/hero/page.tsx` at 448). `app/page.tsx` is 3.6 times
+over it, so the cap changes no score today; it is the line that stops a second page from growing the
+same way.
+
+### 8. Catch-all (`**/*`)
+
+All 23 rules at `1.0` with the framework thresholds for the detected language. After rule sets 1-7,
+what is left is the root build configuration (`next.config.ts` 36 lines, `vitest.config.ts` 17,
+`eslint.config.mjs` 11, `postcss.config.mjs` 9 — the two `.mjs` files return `{"score":null}`) and
+any directory a future change introduces. The repository is 44 files and all of them are
+first-party, so there is nothing left to exempt: a new top-level directory starts strict and is
+promoted to its own rule set with a measurement, never demoted by omission.
+
+## Calibration ledger
+
+Every number here was measured in this checkout, `cs` 1.0.55.
+
+| Change | Where | Direction | Measured effect |
+| --- | --- | --- | --- |
+| 23 rules `0.0` | `next-env.d.ts` | exclude generated | none: the file already returns `score: null` |
+| 3 rules `0.0` (`Low Cohesion`, `Primitive Obsession`, `String Heavy Function Arguments`) | `tests/**` | remove class-shape false positives | none: all four test modules are `10.0` before and after |
+| `file_lines_of_code_for_warning` 1000 → 150 | `lib/analysis/**` | tighten | none today (58 / 54 code lines); proven live at 201 |
+| `file_lines_of_code_for_warning` 1000 → 250 | `lib/**` | tighten | none today (largest 164); proven live at 301 |
+| `function_lines_of_code_warning` 120 → 50, `function_max_arguments` 3 | `hooks/**` | tighten | none today (13 code lines, 0 arguments); proven live at 61 |
+| `function_lines_of_code_warning` 120 → 60, `file_lines_of_code_for_warning` 1000 → 200 | `app/api/**` | tighten | none today (56 code lines file and function); proven live at 71 |
+| `file_lines_of_code_for_warning` 1000 → 600 | `app/**` | tighten | none: `app/page.tsx` already reports the finding at 2177; proven live at 650 |
+
+The framework TypeScript defaults were found by experiment, not by assumption: a synthetic `.tsx`
+module of 1000 cs-measured code lines returns no `Lines of Code in a Single File` while 1100 does,
+and a synthetic function of 118 code lines is clean while 121 reports `Large Method`. So the
+defaults are 1000 code lines per module and 120 per function, and every override above moves the
+number in one direction only — down.
+
+Aggregate: the 24 files that `cs` supports, 18 scorable, reviewed in one call. Baseline (no
+`.codescene/` present): mean **9.4756**, 5 files below 10.0. With this rules file applied: mean
+**9.4756**, 5 files below 10.0, **zero** files changed. That is the intended result and it is worth
+stating plainly: this configuration takes no score from the repository and gives none back. Nothing
+in `app/`, `lib/` or `tests/` is muted, so the five failing files keep failing and the four worst
+(`app/page.tsx` 4.30, `lib/audio.ts` 8.54, `lib/analysis/drift.ts` 8.95,
+`lib/analysis/gravity.ts` 9.09) are the same four that a rules file written to flatter the
+repository would have hidden.
+
+## PR quality gates
+
+`.codescene/custom-quality-gates.json` uses the same first-match-wins order and the same globs as the
+rules file, so the two read as one decision:
+
+| # | `matching_content_path` | Gates |
+| --- | --- | --- |
+| 1 | `next-env.d.ts` | all seven `false` |
+| 2 | `tests/**` | all six enabled gates on, `tag_codeowners_for_critical_code: false` |
+| 3 | `lib/analysis/**` | all six on, `tag_codeowners_for_critical_code: false` |
+| 4 | `lib/**` | all six on, `tag_codeowners_for_critical_code: false` |
+| 5 | `hooks/**` | all six on, `tag_codeowners_for_critical_code: false` |
+| 6 | `app/api/**` | all six on, `tag_codeowners_for_critical_code: false` |
+| 7 | `app/**` | all six on, `tag_codeowners_for_critical_code: false` |
+| 8 | `**/*` | the `pay_down_tech_debt` profile |
+
+The tests, the analysis primitives, the library, the hooks, the server boundary and the App Router
+pages are all gated: a test module that turns into a nested helper chain, a drift rule that grows
+another loop level, or a twelfth exhibit bolted into `app/page.tsx` is what these gates stop. They
+are not a test runner — CodeScene measures structure, so a test that asserts the wrong thing is
+caught by `npm run test`, not by this file, and the two are meant to be used together. The consequence for
+`app/page.tsx` is stated rather than engineered away — until the file is split, a pull request that
+adds another exhibit to it will be blocked by `critical_health_rules`, and the way through is to land
+the exhibit in its own module, not to toggle a gate. The catch-all names the `pay_down_tech_debt`
+profile instead of a map, so a pull request touching build configuration, or a directory that has no
+measured rule set yet, may pay debt down instead of being blocked by a file that no goal targets.
+Promotion is explicit: a path gets its own gate set in the same change that gives it a rule set.
+
+Three of the enabled keys are not decided by the diff alone. `hotspot_decline` reads the file's
+hotspot history as measured on CodeScene project 86838, and `supervise_goals` and
+`refactoring_goals` read the refactoring goals configured on that project, so identical diffs can
+receive different verdicts. `new_code_health`, `advisory_health_rules` and `critical_health_rules`
+are decided by the diff and by `code-health-rules.json`, and `tag_codeowners_for_critical_code` is
+`false` everywhere. The gates are also not a test runner: they measure structure, so the suite's
+behaviour is guarded by `npm run test`.
+
+## Verification
+
+Schema, not opinion — both files, with the exact output:
+
+```console
+$ cs rules-config validate --config-path .codescene/code-health-rules.json --format json
+{"status":"ok","summary":"Code health config is valid: 8 rule set(s), 114 rule override(s), 7 threshold override(s)."}
+
+$ cs rules-config validate --config-path .codescene/custom-quality-gates.json --format json
+{"status":"ok","summary":"Code health config is valid: 8 rule set(s), 0 rule override(s), 0 threshold override(s)."}
+```
+
+What that proves, and what it does not: `rules-config validate` confirms the file parses and that
+the structure is accepted (rule sets, rule names, threshold names, gate keys). It does **not**
+validate profile names or reject unknown gate keys — measured in a scratch copy, a gates file with
+`"quality_gates": "not_a_real_profile"` and one with an invented `made_up_gate` key both return
+`"status":"ok"`. The gates file is therefore also compared field by field against
+`cs docs custom-quality-gates-template`, which prints exactly seven gate keys and the profile
+names `clean_code_collective`, `bare_minimum` and `pay_down_tech_debt`; this file uses only those,
+and the `tag_codeowners_for_critical_code` spelling is the one the template prints. (The public
+CodeScene documentation examples still show the older `codeowners_for_critical_code` spelling; the
+CLI validator accepts both, and the template plus the wave-wide invariant use the `tag_` form, so
+that is the form shipped here.)
+
+First-match-wins resolution, one line per family:
+
+```console
+$ cs check-rules next-env.d.ts
+Matching code health rule path: next-env.d.ts
+$ cs check-rules tests/gravity.test.ts
+Matching code health rule path: tests/**
+$ cs check-rules lib/analysis/drift.ts
+Matching code health rule path: lib/analysis/**
+$ cs check-rules lib/audio.ts
+Matching code health rule path: lib/**
+$ cs check-rules hooks/use-mobile.ts
+Matching code health rule path: hooks/**
+$ cs check-rules app/api/analyze/route.ts
+Matching code health rule path: app/api/**
+$ cs check-rules app/page.tsx
+Matching code health rule path: app/**
+$ cs check-rules next.config.ts
+Matching code health rule path: **/*
+```
+
+Every cap is live, proved by files that cross it rather than by reading the JSON back (run in a
+throwaway copy of the checkout, then deleted; the repository was never touched):
+
+```console
+$ cs review app/probe-cap.tsx lib/probe-cap.ts lib/analysis/probe-cap.ts hooks/probe-cap.ts app/api/probe/route.ts
+app/probe-cap.tsx        -> Lines of Code in a Single File: 650 lines (cap 600)
+lib/probe-cap.ts         -> Lines of Code in a Single File: 301 lines (cap 250)
+lib/analysis/probe-cap.ts-> Lines of Code in a Single File: 201 lines (cap 150)
+hooks/probe-cap.ts       -> Large Method: probeFn LoC = 61 lines (cap 50)
+app/api/probe/route.ts   -> Large Method: GET LoC = 71 lines (cap 60)
+```
+
+Before and after, all 24 supported files (`cs review --file-list`, `--output-format json`):
+
+| File | Baseline | With these rules | Delta |
+| --- | --- | --- | --- |
+| `app/page.tsx` | 4.30 | 4.30 | 0.00 |
+| `lib/audio.ts` | 8.54 | 8.54 | 0.00 |
+| `lib/analysis/drift.ts` | 8.95 | 8.95 | 0.00 |
+| `lib/analysis/gravity.ts` | 9.09 | 9.09 | 0.00 |
+| `app/api/analyze/route.ts` | 9.68 | 9.68 | 0.00 |
+| the other 13 scorable files | 10.00 | 10.00 | 0.00 |
+| 6 unsupported/unscorable files | `null` | `null` | — |
+
+Mean 9.4756 before, 9.4756 after; 5 files below 10.0 before and after.
+
+## Maintenance protocol
+
+1. A new directory starts under `**/*` with all 23 rules at `1.0`. It gets its own rule set only
+   with a measurement in this file: `cs review` before and after on every file in it.
+2. Never widen a threshold to make a file pass. If a module is too big or a function too branchy,
+   the answer is a smaller module, not a bigger number. Every override in this directory moves the
+   number down.
+3. Never edit `next-env.d.ts`. It is regenerated by `next build`; if it changes, commit what the
+   build wrote.
+4. A `10.0` on a `score: null` path means "not scored", not "clean". Say so when quoting it.
+5. Re-run `npm run test` and `cs review` on the touched files after changing anything under
+   `tests/`, `app/`, `hooks/` or `lib/`; the tests and the rules must both stay green. A change to a
+   test is exactly the case where the structure gate and the test run answer different questions.
