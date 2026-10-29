@@ -15,8 +15,11 @@ naming the "baseline system instructions" it overrode. There is no `.claude/`, `
 checkout (checked with `git ls-files` and `ls -a`), so the harness of record is the AI Studio
 applet builder. Every rule below keys off file paths and file content, and
 `tag_codeowners_for_critical_code` is `false` in all seven boolean gate maps (the eighth set, the
-catch-all, names the `pay_down_tech_debt` profile instead of a map), so no gate can depend on
-anything except the code in front of it.
+catch-all, names the `pay_down_tech_debt` profile instead of a map), and no rule set uses a
+`matching_team` filter, so nothing here is keyed on a person or an ownership map. Every gate keys
+off file paths and measured code; two of them, `supervise_goals` and `refactoring_goals`, also read
+the goals configured on the CodeScene project, which is the one input this directory cannot
+describe on its own (see *PR quality gates*).
 
 The CLI is `cs` (CodeScene CLI 1.0.55). Everything in this file reproduces from the repository root:
 
@@ -236,6 +239,12 @@ profile instead of a map, so a pull request touching build configuration, or a d
 measured rule set yet, may pay debt down instead of being blocked by a file that no goal targets.
 Promotion is explicit: a path gets its own gate set in the same change that gives it a rule set.
 
+Two of the enabled keys need naming because they are not decided by the diff alone: `supervise_goals`
+and `refactoring_goals` read the goals configured on CodeScene project 86838, so they enforce a decision
+made in the CodeScene UI. The other five -- `hotspot_decline`, `new_code_health`, `advisory_health_rules`,
+`critical_health_rules` and `tag_codeowners_for_critical_code` -- are decided by the code in the pull
+request and the rules in `code-health-rules.json`.
+
 ## Verification
 
 Schema, not opinion — both files, with the exact output:
@@ -247,6 +256,18 @@ $ cs rules-config validate --config-path .codescene/code-health-rules.json --for
 $ cs rules-config validate --config-path .codescene/custom-quality-gates.json --format json
 {"status":"ok","summary":"Code health config is valid: 8 rule set(s), 0 rule override(s), 0 threshold override(s)."}
 ```
+
+What that proves, and what it does not: `rules-config validate` confirms the file parses and that
+the structure is accepted (rule sets, rule names, threshold names, gate keys). It does **not**
+validate profile names or reject unknown gate keys — measured in a scratch copy, a gates file with
+`"quality_gates": "not_a_real_profile"` and one with an invented `made_up_gate` key both return
+`"status":"ok"`. The gates file is therefore also compared field by field against
+`cs docs custom-quality-gates-template`, which prints exactly seven gate keys and the profile
+names `clean_code_collective`, `bare_minimum` and `pay_down_tech_debt`; this file uses only those,
+and the `tag_codeowners_for_critical_code` spelling is the one the template prints. (The public
+CodeScene documentation examples still show the older `codeowners_for_critical_code` spelling; the
+CLI validator accepts both, and the template plus the wave-wide invariant use the `tag_` form, so
+that is the form shipped here.)
 
 First-match-wins resolution, one line per family:
 
